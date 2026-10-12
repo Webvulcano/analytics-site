@@ -33,6 +33,10 @@ node scripts/copy-client-kit.mjs <ügyféloldal repo>
    npx tsx scripts/sync-manifest.mjs <repo>/cms.manifest.js --print-secret
    ```
 
+## Frissítés mentés után
+- A revalidate route ellenőrzi, hogy a CMS válaszol-e. Ha igen: `revalidateTag(tag, { expire: 0 })` → az oldal-bemelegítés már az új tartalommal generál, az első látogató is frisset kap. Ha nem: `"max"` (stale-while-revalidate) → a legutóbbi jó oldal marad kint.
+- ⚠️ Dinamikus route-oknál (`[slug]` + `generateStaticParams`) **`dynamicParams = true`** kell (ismeretlen slugra a page maga hívjon `notFound()`-ot). `false`-szal a lejáratás után a Next nem generál újra → 404 (NoFallbackError).
+
 ## Többnyelvű oldal
 - `locales`: az első az alapnyelv. Fordítás mezőnként: `default` (alapnyelv) + `translations: { en: …, de: … }`.
 - Ha a nyelvek külön útvonalon vannak, `page.path` nyelvenként: `{ hu: "/hallokeszulekek", en: "/en/hearing-aids" }`. A szerkesztő az előnézetben a választott nyelv oldalát tölti be.

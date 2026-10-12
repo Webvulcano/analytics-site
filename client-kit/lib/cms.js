@@ -26,6 +26,22 @@ export function cmsPagePaths() {
   return [...new Set(paths)];
 }
 
+// Does the CMS answer right now? (uncached, short timeout) - the revalidate route uses it to decide
+// between expiring the cache immediately and stale-while-revalidate.
+export async function cmsReachable() {
+  if (process.env.CMS_OFFLINE === "1" || !SLUG || !SUPABASE_URL || !SUPABASE_KEY) return false;
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/cms_get_site_content?p_site=${encodeURIComponent(SLUG)}`, {
+      headers: { apikey: SUPABASE_KEY, Accept: "application/json" },
+      cache: "no-store",
+      signal: AbortSignal.timeout(5000),
+    });
+    return res.ok && (await res.json()) != null;
+  } catch {
+    return false;
+  }
+}
+
 async function loadContent() {
   if (process.env.CMS_OFFLINE === "1") return offlineContent(normalizeManifest(manifest));
 
