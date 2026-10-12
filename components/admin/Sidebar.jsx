@@ -11,9 +11,12 @@ const NAV = [
 ];
 
 export default function Sidebar({ site, sites, user }) {
-  const nav = site.galleryLabel
-    ? [NAV[0], { segment: "portfolio", label: site.galleryLabel, icon: GridIcon }, ...NAV.slice(1)]
-    : NAV;
+  const nav = [
+    NAV[0],
+    ...(site.galleryLabel ? [{ segment: "portfolio", label: site.galleryLabel, icon: GridIcon }] : []),
+    ...(site.blogLabel ? [{ segment: "blog", label: site.blogLabel, icon: DocIcon }] : []),
+    ...NAV.slice(1),
+  ];
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -116,6 +119,15 @@ function GridIcon() {
       <rect x="11" y="3" width="6" height="6" rx="1" />
       <rect x="3" y="11" width="6" height="6" rx="1" />
       <rect x="11" y="11" width="6" height="6" rx="1" />
+    </svg>
+  );
+}
+
+function DocIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4">
+      <path d="M5 2.5h6.5L15 6v11.5H5z" strokeLinejoin="round" />
+      <path d="M11.5 2.5V6H15M7.5 9.5h5M7.5 12.5h5M7.5 15h3" strokeLinecap="round" />
     </svg>
   );
 }
