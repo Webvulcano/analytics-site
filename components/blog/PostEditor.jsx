@@ -105,7 +105,7 @@ export default function PostEditor({ site, post: initialPost, initialLocale, tra
   const setVisibility = (next, okText) => act(next, () => setPostStatus({ siteSlug: site.slug, id: post.id, status: next }), okText);
 
   async function toTrash() {
-    if (!window.confirm(`Kukába teszed ezt a cikket? ${TRASH_DAYS} napig visszaállítható.`)) return;
+    if (!window.confirm(`Törlöd ezt a cikket? A Kukába kerül, onnan ${TRASH_DAYS} napig visszaállítható.`)) return;
     setBusy("trash");
     try {
       const res = await trashPost({ siteSlug: site.slug, id: post.id });
@@ -338,8 +338,13 @@ export default function PostEditor({ site, post: initialPost, initialLocale, tra
               />
             </label>
             {post && state !== "trash" && (
-              <button type="button" disabled={!canAct} onClick={toTrash} className="text-sm font-medium text-red-600 hover:underline disabled:opacity-50 dark:text-red-400">
-                Kukába
+              <button
+                type="button"
+                disabled={!canAct}
+                onClick={toTrash}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {busy === "trash" ? "Törlés…" : "Cikk törlése"}
               </button>
             )}
           </Section>

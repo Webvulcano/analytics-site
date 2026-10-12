@@ -178,15 +178,15 @@ export default function BlogList({ site, locales, posts }) {
                       )}
                       <button
                         type="button"
-                        className={`${btn} text-red-600 dark:text-red-400`}
+                        className="rounded-md bg-red-600 px-2 py-1 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-40"
                         disabled={disabled}
                         onClick={() =>
-                          run(p, trashPost, "Kukába téve", {
-                            confirm: `Kukába teszed: „${p.title}”? ${TRASH_DAYS} napig visszaállítható.`,
+                          run(p, trashPost, `Cikk törölve (a Kukából ${TRASH_DAYS} napig visszaállítható)`, {
+                            confirm: `Törlöd ezt a cikket: „${p.title}”? A Kukába kerül, onnan ${TRASH_DAYS} napig visszaállítható.`,
                           })
                         }
                       >
-                        Kukába
+                        Cikk törlése
                       </button>
                     </>
                   )}
