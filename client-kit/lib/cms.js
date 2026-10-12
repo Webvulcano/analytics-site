@@ -62,8 +62,37 @@ async function loadContent() {
   return data;
 }
 
-function publicUrl(path) {
+export function publicUrl(path) {
   return `${SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${path}`;
+}
+
+// ---- Blog (posts) ----------------------------------------------------------------------------
+// Ugyanaz a cache-tag (cms:<slug>), mint a tartalomé → az admin mentése / közzététele frissíti.
+// Hiba esetén dob (mint a loadContent): a revalidate elbukik, a legutóbbi jó oldal marad.
+async function rpc(name, params, { preview = false } = {}) {
+  const qs = new URLSearchParams({ p_site: SLUG, ...params });
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?${qs}`, {
+    headers: { apikey: SUPABASE_KEY, Accept: "application/json" },
+    ...(preview ? { cache: "no-store" } : { cache: "force-cache", next: { tags: [cmsTag()] } }),
+  });
+  if (!res.ok) throw new Error(`CMS ${name}: HTTP ${res.status}`);
+  return res.json();
+}
+
+const offline = () => process.env.CMS_OFFLINE === "1";
+
+// Közzétett cikkek egy nyelven (meta, törzs nélkül), újak elöl.
+export const getPosts = cache(async (locale) => (offline() ? [] : (await rpc("cms_list_posts", { p_locale: locale })) ?? []));
+
+// Egy közzétett cikk (törzs, GYIK, nyelvi párok) - null, ha nincs ilyen.
+export const getPost = cache(async (locale, slug) =>
+  offline() ? null : rpc("cms_get_post", { p_locale: locale, p_slug: slug })
+);
+
+// Előnézet (piszkozat is), a cikk titkos tokenjével - cache nélkül.
+export async function getPostPreview(id, token) {
+  if (offline()) return null;
+  return rpc("cms_get_post_preview", { p_id: id, p_token: token }, { preview: true });
 }
 
 export function splitLines(value) {
@@ -92,6 +121,11 @@ function createAccessor(data, requestedLocale) {
   return {
     locale,
     locales: data.locales,
+
+    // Közzétett cikkek száma a nyelven (null: nincs blog-modul) - menü / hreflang ebből tudja, van-e blog.
+    postCount(loc = locale) {
+      return data.posts ? data.posts[loc] ?? 0 : null;
+    },
 
     // Plain string (rich text gets flattened).
     text(key) {

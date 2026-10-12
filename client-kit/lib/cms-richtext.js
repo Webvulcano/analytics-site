@@ -2,7 +2,9 @@
 // client websites (rendering). Anything not explicitly allowed is dropped, so stored
 // content can never inject markup — even if written directly through the database API.
 
-const NODES = new Set(["doc", "paragraph", "text", "hardBreak", "bulletList", "orderedList", "listItem"]);
+const NODES = new Set(["doc", "paragraph", "heading", "text", "hardBreak", "bulletList", "orderedList", "listItem"]);
+// Címsor csak 2-es és 3-as szint (a h1 az oldal címe). Csak a blog-szerkesztő kínálja, de a renderer mindenhol ismeri.
+const HEADING_LEVELS = new Set([2, 3]);
 const MARKS = new Set(["bold", "italic", "link"]);
 const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|\/(?!\/)|#)/i;
 const MAX_DEPTH = 8;
@@ -38,6 +40,10 @@ function sanitizeNode(node, depth) {
   const content = Array.isArray(node.content)
     ? node.content.map((c) => sanitizeNode(c, depth + 1)).filter(Boolean)
     : [];
+  if (node.type === "heading") {
+    const level = HEADING_LEVELS.has(node.attrs?.level) ? node.attrs.level : 2;
+    return { type: "heading", attrs: { level }, content };
+  }
   return { type: node.type, content };
 }
 
@@ -68,7 +74,30 @@ export function toPlainText(value) {
     if (node.type === "text") parts.push(node.text);
     if (node.type === "hardBreak") parts.push("\n");
     if (Array.isArray(node.content)) node.content.forEach(walk);
-    if (node.type === "paragraph" || node.type === "listItem") parts.push("\n");
+    if (node.type === "paragraph" || node.type === "listItem" || node.type === "heading") parts.push("\n");
   })(value);
   return parts.join("").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// Horgony-id egy címsorhoz (mint a GitHub / rehype-slug: kisbetű, ékezet marad, írásjel ki, szóköz → kötőjel).
+export function slugifyHeading(text) {
+  return String(text ?? "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^\p{L}\p{N}\s-]/gu, "")
+    .replace(/\s/g, "-");
+}
+
+// A doc címsorainak egyedi id-jei (ismétlődő címnél -1, -2 utótag), sorrendben.
+export function headingIds(doc) {
+  const seen = new Map();
+  const ids = [];
+  for (const node of doc?.content ?? []) {
+    if (node.type !== "heading") continue;
+    const base = slugifyHeading(toPlainText(node)) || "szakasz";
+    const n = seen.get(base) ?? 0;
+    seen.set(base, n + 1);
+    ids.push(n ? `${base}-${n}` : base);
+  }
+  return ids;
 }

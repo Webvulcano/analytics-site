@@ -31,6 +31,8 @@ function docToNodes(value) {
     switch (node.type) {
       case "paragraph":
         return withChildren("p", node);
+      case "heading":
+        return withChildren(node.attrs?.level === 3 ? "h3" : "h2", node);
       case "bulletList":
         return withChildren("ul", node);
       case "orderedList":

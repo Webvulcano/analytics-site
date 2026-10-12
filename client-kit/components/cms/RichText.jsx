@@ -1,19 +1,25 @@
 import { Fragment } from "react";
-import { sanitizeDoc } from "@/lib/cms-richtext";
+import { headingIds, sanitizeDoc } from "@/lib/cms-richtext";
 
 // Renders a Tiptap JSON doc (or a plain string) through the allowlist.
 // No hooks → usable from Server and Client Components alike.
 export default function RichText({ value, className, ...rest }) {
   const doc = sanitizeDoc(value);
+  const ids = headingIds(doc);
+  let h = 0;
   return (
     <div className={className} data-cms-rich="" {...rest}>
-      {doc.content.map((node, i) => renderNode(node, i))}
+      {doc.content.map((node, i) => renderNode(node, i, node.type === "heading" ? ids[h++] : undefined))}
     </div>
   );
 }
 
-function renderNode(node, key) {
+function renderNode(node, key, id) {
   switch (node.type) {
+    case "heading": {
+      const Tag = node.attrs?.level === 3 ? "h3" : "h2";
+      return <Tag key={key} id={id}>{renderChildren(node)}</Tag>;
+    }
     case "paragraph":
       return <p key={key}>{renderChildren(node)}</p>;
     case "bulletList":

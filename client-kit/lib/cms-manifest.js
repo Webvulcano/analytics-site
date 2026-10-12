@@ -171,6 +171,26 @@ export function normalizeManifest(manifest) {
     gallery = { label: g.label ?? "Galéria", maxWidth: g.maxWidth ?? 2000, quality: g.quality ?? 80, links };
   }
 
+  // Blog-modul: cikkek az adminban (Blog menü). locales = mely nyelveken van blog; path / postPath nyelvenként
+  // ({slug} helyére a cikk slugja kerül) - az admin ebből tudja a „Megnézem" és az előnézet linkjét.
+  let blog = null;
+  if (m.blog) {
+    const b = m.blog;
+    const codes = locales.map((l) => l.locale);
+    const blogLocales = b.locales ?? [defaultLocale];
+    for (const l of blogLocales) if (!codes.includes(l)) fail(`blog.locales ismeretlen nyelv: ${l}`);
+    const pathMap = (v, what) => {
+      const out = typeof v === "string" ? { [defaultLocale]: v } : { ...(v ?? {}) };
+      for (const l of blogLocales) {
+        if (typeof out[l] !== "string" || !out[l].startsWith("/")) fail(`blog.${what}.${l} "/"-rel kezdődő útvonal kell`);
+      }
+      return out;
+    };
+    const postPath = pathMap(b.postPath, "postPath");
+    for (const l of blogLocales) if (!postPath[l].includes("{slug}")) fail(`blog.postPath.${l}: {slug} hiányzik`);
+    blog = { label: b.label ?? "Blog", locales: blogLocales, path: pathMap(b.path, "path"), postPath, author: b.author ?? null };
+  }
+
   const a = m.analytics ?? {};
   return {
     site: {
@@ -186,6 +206,7 @@ export function normalizeManifest(manifest) {
       cta_event: a.ctaEvent ?? "cta_click",
       cta_buttons: a.ctaButtons ?? [],
       gallery,
+      blog,
     },
     locales,
     members: (m.members ?? []).map((x) => ({ email: x.email.toLowerCase(), role: x.role ?? "editor" })),
@@ -205,6 +226,7 @@ export function offlineContent(normalized) {
       normalized.fields.map((f) => [f.key, { t: f.type, d: f.default_value, v: {} }])
     ),
     gallery: normalized.site.gallery ? { categories: [], items: [] } : null,
+    posts: normalized.site.blog ? {} : null,
     images: Object.fromEntries(
       normalized.slots.map((s) => [
         s.key,
