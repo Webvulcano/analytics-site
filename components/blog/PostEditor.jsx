@@ -120,6 +120,33 @@ export default function PostEditor({ site, post: initialPost, initialLocale, tra
     }
   }
 
+  // Előnézet új lapon. Nem mentett piszkozatnál / rejtett cikknél előbb ment (a lapot szinkron nyitjuk,
+  // különben a böngésző felugró ablakként letiltaná). Közzétett cikknél nem ment (az élesítene),
+  // ott a mentett változatot mutatja.
+  async function openPreview() {
+    if (!post) return;
+    if (!dirty || post.status === "published") {
+      window.open(previewUrl(site.previewBase, post), "_blank", "noopener");
+      return;
+    }
+    const tab = window.open("about:blank", "_blank");
+    setBusy("save");
+    setStatus(null);
+    try {
+      const res = await savePost({ siteSlug: site.slug, id: post.id, data: form, action: "save" });
+      applySaved(res, "Mentve");
+      if (res.ok && tab) {
+        tab.opener = null;
+        tab.location.href = previewUrl(site.previewBase, res.post);
+      } else tab?.close();
+    } catch {
+      tab?.close();
+      setStatus({ type: "error", text: "Hálózati hiba - a módosítás nincs mentve. Próbáld újra." });
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function retry() {
     const res = await retryBlogPublish({ siteSlug: site.slug });
     setStatus(res.ok ? { type: "ok", text: "A weboldal frissítve ✓" } : { type: "warn", text: `Még mindig nem sikerült (${res.error}).`, retry: true });
@@ -273,18 +300,21 @@ export default function PostEditor({ site, post: initialPost, initialLocale, tra
                 </a>
               )}
               {preview && (
-                <a
-                  href={dirty ? undefined : preview}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-disabled={dirty}
-                  title={dirty ? "Az előnézet a mentett változatot mutatja - előbb ments." : undefined}
-                  className={`font-medium ${dirty ? "cursor-not-allowed text-zinc-400" : "text-indigo-600 hover:underline dark:text-indigo-400"}`}
+                <button
+                  type="button"
+                  onClick={openPreview}
+                  disabled={Boolean(busy) || (dirty && readOnly)}
+                  className="font-medium text-indigo-600 hover:underline disabled:opacity-50 dark:text-indigo-400"
                 >
-                  Előnézet ↗
-                </a>
+                  {dirty && post.status !== "published" ? "Mentés és előnézet ↗" : "Előnézet ↗"}
+                </button>
               )}
             </div>
+            {dirty && post?.status === "published" && (
+              <p className="text-xs text-amber-700 dark:text-amber-400">
+                Az előnézet a mentett (élő) változatot mutatja - a módosításaid a „Frissítés” után látszanak.
+              </p>
+            )}
             <label className="block">
               <span className="text-sm font-medium">Megjelenés dátuma</span>
               <input
