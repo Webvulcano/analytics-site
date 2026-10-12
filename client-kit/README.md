@@ -37,6 +37,13 @@ node scripts/copy-client-kit.mjs <ügyféloldal repo>
 - A revalidate route ellenőrzi, hogy a CMS válaszol-e. Ha igen: `revalidateTag(tag, { expire: 0 })` → az oldal-bemelegítés már az új tartalommal generál, az első látogató is frisset kap. Ha nem: `"max"` (stale-while-revalidate) → a legutóbbi jó oldal marad kint.
 - ⚠️ Dinamikus route-oknál (`[slug]` + `generateStaticParams`) **`dynamicParams = true`** kell (ismeretlen slugra a page maga hívjon `notFound()`-ot). `false`-szal a lejáratás után a Next nem generál újra → 404 (NoFallbackError).
 
+## Blog-modul
+- Manifest: `blog: { label, locales: ['hu'], path: { hu: '/blog' }, postPath: { hu: '/blog/{slug}' }, author }` → sync → az adminban megjelenik a Blog menü (írás, szerkesztés, elrejtés, Kuka 30 napig, borítókép + OG-kép, GYIK, Google-előnézet).
+- Weboldal: `getPosts(locale)` (lista, újak elöl), `getPost(locale, slug)` (törzs, `faq`, `translations`), a törzs: `<RichText value={post.body} />` (h2/h3 horgony-id-vel). Képek: `publicUrl(post.cover.path)`, `publicUrl(post.og)`.
+- Van-e blog egy nyelven: `cms.postCount(locale)` (a site-tartalomból, külön lekérés nélkül) → menü / hreflang / sitemap.
+- Előnézet: az admin linkje `{siteUrl}/api/preview?post=<id>&token=<token>` - a weboldalon kell egy route, ami `getPostPreview(id, token)`-nel ellenőriz, `draftMode()`-ot kapcsol és a cikkre irányít (minta: Hallásgondozó `app/api/preview`).
+- Meglévő MDX-cikkek átvétele: `node scripts/import-mdx-posts.mjs <repo> [--run]` (admin repó).
+
 ## Többnyelvű oldal
 - `locales`: az első az alapnyelv. Fordítás mezőnként: `default` (alapnyelv) + `translations: { en: …, de: … }`.
 - Ha a nyelvek külön útvonalon vannak, `page.path` nyelvenként: `{ hu: "/hallokeszulekek", en: "/en/hearing-aids" }`. A szerkesztő az előnézetben a választott nyelv oldalát tölti be.
