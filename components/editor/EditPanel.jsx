@@ -2,6 +2,7 @@
 
 import RichTextEditor from "./RichTextEditor";
 import ImageEditor from "./ImageEditor";
+import ResizableAside from "./ResizableAside";
 
 // Right-hand panel: edits one field (or one item/sub-field of a list).
 export default function EditPanel({
@@ -23,7 +24,11 @@ export default function EditPanel({
   onRetryPublish,
   image, // saved image of a slot (or undefined → template image)
   locale,
+  panelWidth,
+  onPanelResize,
+  onPanelResizeEnd,
 }) {
+  const resize = { width: panelWidth, onResize: onPanelResize, onResizeEnd: onPanelResizeEnd };
   const footer = (
     <PanelFooter
       status={status}
@@ -41,7 +46,7 @@ export default function EditPanel({
 
   if (item.kind === "slot") {
     return (
-      <PanelShell title={item.slot.label} section={item.slot.section_label} onClose={onClose} footer={footer}>
+      <PanelShell title={item.slot.label} section={item.slot.section_label} onClose={onClose} footer={footer} resize={resize}>
         <div className="space-y-4 p-4">
           {localeNote && <p className="text-xs text-zinc-500">{localeNote}</p>}
           {readOnly && <ReadOnlyNote />}
@@ -107,6 +112,7 @@ export default function EditPanel({
       section={field.section_label}
       onClose={onClose}
       footer={footer}
+      resize={resize}
     >
       <div className="space-y-4 p-4">
         {localeNote && <p className="text-xs text-zinc-500">{localeNote}</p>}
@@ -179,9 +185,12 @@ function PanelFooter({ status, onRetryPublish, onReset, resetLabel, canReset, on
   );
 }
 
-function PanelShell({ title, section, onClose, children, footer }) {
+function PanelShell({ title, section, onClose, children, footer, resize }) {
   return (
-    <aside className="flex max-h-[70dvh] w-full flex-col border-t border-zinc-200 bg-white md:max-h-none md:w-96 md:shrink-0 md:border-l md:border-t-0 dark:border-zinc-800 dark:bg-zinc-900">
+    <ResizableAside
+      {...resize}
+      className="flex max-h-[70dvh] flex-col border-t border-zinc-200 bg-white md:max-h-none md:border-l md:border-t-0 dark:border-zinc-800 dark:bg-zinc-900"
+    >
       <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 dark:border-zinc-800">
         <div className="min-w-0">
           <p className="text-xs text-zinc-500">{section}</p>
@@ -198,7 +207,7 @@ function PanelShell({ title, section, onClose, children, footer }) {
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
       {footer && <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">{footer}</div>}
-    </aside>
+    </ResizableAside>
   );
 }
 

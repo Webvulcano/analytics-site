@@ -15,6 +15,7 @@ import { discardUpload, uploadSlotImage } from "@/lib/image/upload";
 import PreviewFrame from "./PreviewFrame";
 import EditPanel from "./EditPanel";
 import AllFieldsList from "./AllFieldsList";
+import ResizableAside, { usePanelWidth } from "./ResizableAside";
 
 const clone = (v) => (v === undefined ? v : structuredClone(v));
 // Client sites mark gallery-module areas with data-cms="@gallery": managed on the gallery page.
@@ -46,6 +47,7 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
   const [status, setStatus] = useState(null);
   const [revision, setRevision] = useState(0); // remounts editors after cancel/reset
   const [galleryHint, setGalleryHint] = useState(false);
+  const [panelWidth, setPanelWidth, commitPanelWidth] = usePanelWidth();
 
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
   const src = new URL(localePath(page, locale), site.previewUrl).toString();
@@ -470,7 +472,12 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
         </div>
 
         {galleryHint && !(target && (field || slot)) && (
-          <aside className="w-full border-t border-zinc-200 bg-white p-4 text-sm md:w-96 md:shrink-0 md:border-l md:border-t-0 dark:border-zinc-800 dark:bg-zinc-900">
+          <ResizableAside
+            width={panelWidth}
+            onResize={setPanelWidth}
+            onResizeEnd={commitPanelWidth}
+            className="border-t border-zinc-200 bg-white p-4 text-sm md:border-l md:border-t-0 dark:border-zinc-800 dark:bg-zinc-900"
+          >
             <div className="flex items-start justify-between gap-3">
               <p className="font-semibold">{site.galleryLabel}</p>
               <button type="button" onClick={() => setGalleryHint(false)} aria-label="Bezárás" className="text-zinc-500">
@@ -483,7 +490,7 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
             <a href={`/${site.slug}/portfolio`} className="mt-3 inline-block font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
               Megnyitás →
             </a>
-          </aside>
+          </ResizableAside>
         )}
 
         {target && (field || slot) && (
@@ -507,6 +514,9 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
             siteUrl={site.siteUrl}
             image={slot ? images[slot.key] : undefined}
             locale={locale}
+            panelWidth={panelWidth}
+            onPanelResize={setPanelWidth}
+            onPanelResizeEnd={commitPanelWidth}
           />
         )}
       </div>
