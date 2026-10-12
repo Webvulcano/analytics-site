@@ -8,7 +8,7 @@ const kb = (n) => (n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${
 
 // Single image slot: pick a photo → converted to WebP in the browser → previewed on the
 // page right away. Nothing is uploaded until "Mentés".
-export default function ImageEditor({ slot, image, draft, onChange, disabled, siteUrl, locale }) {
+export default function ImageEditor({ slot, image, draft, onChange, onReset, disabled, siteUrl, locale }) {
   const inputRef = useRef(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -129,6 +129,18 @@ export default function ImageEditor({ slot, image, draft, onChange, disabled, si
         {busy ? "Feldolgozás…" : "Új kép kiválasztása"}
         <span className="mt-0.5 block text-xs font-normal text-zinc-500">vagy húzd ide · JPG, PNG, HEIC, WebP</span>
       </button>
+
+      {image && !draft.upload && (
+        // Saved upload, nothing pending: offer the way back to the template image.
+        <button
+          type="button"
+          onClick={onReset}
+          disabled={busy || disabled}
+          className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm font-medium text-zinc-700 hover:border-red-400 hover:text-red-600 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-300"
+        >
+          ↺ Eredeti kép visszaállítása
+        </button>
+      )}
 
       {error && (
         <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">

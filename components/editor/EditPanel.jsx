@@ -34,8 +34,8 @@ export default function EditPanel({
       status={status}
       onRetryPublish={onRetryPublish}
       onReset={onReset}
-      resetLabel={item.kind === "slot" ? "Eredeti kép visszaállítása" : "Eredeti szöveg visszaállítása"}
-      canReset={canReset}
+      resetLabel="Eredeti szöveg visszaállítása"
+      canReset={item.kind === "slot" ? false : canReset} // images: the button sits under the picture
       onCancel={onCancel}
       onSave={onSave}
       dirty={dirty}
@@ -55,6 +55,7 @@ export default function EditPanel({
             image={image}
             draft={draft}
             onChange={onChange}
+            onReset={onReset}
             disabled={readOnly || saving}
             siteUrl={siteUrl}
             locale={locale}
