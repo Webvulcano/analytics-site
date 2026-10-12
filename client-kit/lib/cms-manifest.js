@@ -153,7 +153,8 @@ export function normalizeManifest(manifest) {
           default_src: def.src ?? null,
           default_width: def.width ?? null,
           default_height: def.height ?? null,
-          default_alt: def.alt ? { [defaultLocale]: def.alt } : {},
+          // alt: szöveg (alapnyelv) vagy { hu, en, de } nyelvenként
+          default_alt: !def.alt ? {} : typeof def.alt === "object" ? { ...def.alt } : { [defaultLocale]: def.alt },
           sort: si * 1000 + 500 + ii,
         });
       });

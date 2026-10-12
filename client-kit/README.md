@@ -37,6 +37,7 @@ node scripts/copy-client-kit.mjs <ügyféloldal repo>
 - `locales`: az első az alapnyelv. Fordítás mezőnként: `default` (alapnyelv) + `translations: { en: …, de: … }`.
 - Ha a nyelvek külön útvonalon vannak, `page.path` nyelvenként: `{ hu: "/hallokeszulekek", en: "/en/hearing-aids" }`. A szerkesztő az előnézetben a választott nyelv oldalát tölti be.
 - A tartalom `getCms(locale)`-ből jön.
+- Kép-slot alt szövege nyelvenként: `default: { src, alt: { hu: "…", en: "…" } }` (sima szöveg = csak az alapnyelv). A kép minden nyelven ugyanaz.
 - Még nem élesített nyelvekhez: `site.previewUrl` egy külön előnézeti deploy originje, ahol minden nyelv él és `noindex`. A szerkesztő ezt framelli, a publish az élest és ezt is frissíti (ugyanaz a `CMS_REVALIDATE_SECRET`). A preview deployon is kell `frame-ancestors`, és kikapcsolt Vercel Deployment Protection.
 
 ## Viselkedés
