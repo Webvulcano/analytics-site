@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { startTransition, useEffect, useMemo, useState } from "react";
 import { retryBlogPublish, savePost, setPostStatus, trashPost } from "@/app/(admin)/[site]/blog/actions";
 import RichTextEditor from "@/components/editor/RichTextEditor";
 import { Notice, inputClass } from "@/components/gallery/Modal";
@@ -39,7 +39,17 @@ function Section({ title, children }) {
   );
 }
 
-export default function PostEditor({ site, post: initialPost, initialLocale, translationOf, siblings }) {
+// cacheComponents mellett a Next megőrzi a meglátogatott oldalak állapotát (React Activity). Az „Új cikk"
+// oldal így az első mentés után is a mentett cikket tartaná: a következő „Új cikk" azt mutatná (akár már
+// kukázva), és a mentés azt írná felül. Ezért mentés után a szerkesztő új key-jel, üresen újraépül
+// (a Tiptap-szerkesztő saját állapotát is beleértve).
+export default function PostEditor(props) {
+  const [instance, setInstance] = useState(0);
+  if (props.post) return <PostEditorForm {...props} />;
+  return <PostEditorForm key={instance} {...props} onCreated={() => setInstance((i) => i + 1)} />;
+}
+
+function PostEditorForm({ site, post: initialPost, initialLocale, translationOf, siblings, onCreated }) {
   const router = useRouter();
   const [post, setPost] = useState(initialPost);
   const [form, setForm] = useState(() => formFromPost(initialPost, { locale: initialLocale, author: site.blog.author }));
@@ -79,12 +89,19 @@ export default function PostEditor({ site, post: initialPost, initialLocale, tra
   function applySaved(res, okText) {
     setStatus(blogNotice(res, okText));
     if (!res.ok || !res.post) return;
-    const isNew = !post;
+    if (!post) {
+      // Új cikk első mentése → a cikk saját oldalára váltunk, ez az „Új cikk" példány pedig
+      // üresen újraépül (onCreated → új key). Egy transitionben: nincs üres villanás a váltás előtt.
+      startTransition(() => {
+        router.replace(`/${site.slug}/blog/${res.post.id}`);
+        onCreated?.();
+      });
+      return;
+    }
     setPost(res.post);
     const next = formFromPost(res.post, { locale: res.post.locale, author: site.blog.author });
     setForm(next);
     setSaved(next);
-    if (isNew) router.replace(`/${site.slug}/blog/${res.post.id}`);
   }
 
   async function act(name, fn, okText) {
