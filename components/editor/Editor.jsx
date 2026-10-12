@@ -36,7 +36,7 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
   const [locale, setLocale] = useState(site.defaultLocale);
   const [pageKey, setPageKey] = useState(pages[0].key);
   const [device, setDevice] = useState("desktop");
-  const [mode, setMode] = useState("edit");
+  const [mode, setMode] = useState("navigate");
   const [tab, setTab] = useState("preview");
   const [connected, setConnected] = useState(false);
 
