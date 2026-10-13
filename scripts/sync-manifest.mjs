@@ -5,14 +5,15 @@
 //   npx tsx scripts/sync-manifest.mjs <path>/cms.manifest.js [--prune] [--print-payload] [--print-secret]
 //
 //   --prune          also remove locales/members missing from the manifest
+//                    (members: from cms.members.local.json next to the manifest, if present)
 //   --print-payload  only print the RPC payload JSON (no network call)
 //   --print-secret   print the site's CMS_REVALIDATE_SECRET (needs CMS_MASTER_SECRET)
 //
 // Needs in .env.local: NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SECRET_KEY, CMS_MASTER_SECRET.
 
 import { createHash } from "node:crypto";
-import { existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { normalizeManifest } from "../client-kit/lib/cms-manifest.js";
 import { deriveRevalidateSecret } from "../lib/secrets.js";
@@ -30,7 +31,21 @@ const envFile = resolve(import.meta.dirname, "../.env.local");
 if (existsSync(envFile)) process.loadEnvFile(envFile);
 
 const mod = await import(pathToFileURL(resolve(manifestPath)).href);
-const normalized = normalizeManifest(mod.default ?? mod);
+const manifest = { ...(mod.default ?? mod) };
+
+// Members can live next to the manifest in a gitignored cms.members.local.json
+// ([{ email, role }]) so client emails never reach git. Overrides manifest.members.
+const membersFile = resolve(dirname(resolve(manifestPath)), "cms.members.local.json");
+if (existsSync(membersFile)) {
+  manifest.members = JSON.parse(readFileSync(membersFile, "utf8"));
+  console.error(`Tagok: ${membersFile}`);
+}
+if (flags.has("--prune") && !manifest.members?.length) {
+  console.error("--prune üres tag-listával minden tagot törölne. Hiányzik a cms.members.local.json?");
+  process.exit(1);
+}
+
+const normalized = normalizeManifest(manifest);
 const payload = {
   ...normalized,
   manifest_hash: createHash("sha256").update(JSON.stringify(normalized)).digest("hex").slice(0, 16),
