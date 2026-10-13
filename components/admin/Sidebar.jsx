@@ -15,6 +15,7 @@ export default function Sidebar({ site, sites, user }) {
     NAV[0],
     ...(site.galleryLabel ? [{ segment: "portfolio", label: site.galleryLabel, icon: GridIcon }] : []),
     ...(site.blogLabel ? [{ segment: "blog", label: site.blogLabel, icon: DocIcon }] : []),
+    ...(site.reviewsLabel ? [{ segment: "ertekelesek", label: site.reviewsLabel, icon: StarIcon }] : []),
     ...NAV.slice(1),
   ];
   const pathname = usePathname();
@@ -108,6 +109,14 @@ function PencilIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" className="h-4 w-4">
       <path d="M13.5 3.5l3 3L7 16H4v-3l9.5-9.5z" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function StarIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" className="h-4 w-4">
+      <path d="M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7L10 2.8z" />
     </svg>
   );
 }

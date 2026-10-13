@@ -185,6 +185,21 @@ function createAccessor(data, requestedLocale) {
         })),
       };
     },
+    // Reviews module: [{ id, author, subtitle, body, rating, translated }] in admin order (visible only).
+    // body/subtitle in the current locale, falling back to the original (default-locale) text;
+    // translated = false when the original is shown on another language. null when the site has no module.
+    reviews() {
+      const list = data.reviews;
+      if (!list) return null;
+      return list.map((r) => ({
+        id: r.id,
+        author: r.author,
+        subtitle: pick(r.subtitle) ?? "",
+        body: pick(r.body) ?? "",
+        rating: r.rating,
+        translated: locale === data.defaultLocale || Boolean(r.body?.[locale]),
+      }));
+    },
     // data attributes for the visual editor (harmless outside the admin iframe)
     attr(key, i, f) {
       return {

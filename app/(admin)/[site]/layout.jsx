@@ -21,7 +21,7 @@ async function SiteSidebar({ params }) {
   const [{ site, user }, sites] = await Promise.all([requireSite(slug), listMySites()]);
   return (
     <Sidebar
-      site={{ slug: site.slug, name: site.name, siteUrl: site.site_url, galleryLabel: site.gallery?.label ?? null, blogLabel: site.blog?.label ?? null }}
+      site={{ slug: site.slug, name: site.name, siteUrl: site.site_url, galleryLabel: site.gallery?.label ?? null, blogLabel: site.blog?.label ?? null, reviewsLabel: site.reviews?.label ?? null }}
       sites={sites.map((s) => ({ slug: s.slug, name: s.name }))}
       user={{ email: user.email }}
     />

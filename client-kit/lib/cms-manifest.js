@@ -194,6 +194,9 @@ export function normalizeManifest(manifest) {
     blog = { label: b.label ?? "Blog", locales: blogLocales, path: pathMap(b.path, "path"), postPath, author: b.author ?? null };
   }
 
+  // Értékelések-modul: vélemények az adminban (Értékelések menü) → cms.reviews().
+  const reviews = m.reviews ? { label: m.reviews.label ?? "Értékelések" } : null;
+
   const a = m.analytics ?? {};
   return {
     site: {
@@ -210,6 +213,7 @@ export function normalizeManifest(manifest) {
       cta_buttons: a.ctaButtons ?? [],
       gallery,
       blog,
+      reviews,
     },
     locales,
     members: (m.members ?? []).map((x) => ({ email: x.email.toLowerCase(), role: x.role ?? "editor" })),
@@ -230,6 +234,7 @@ export function offlineContent(normalized) {
     ),
     gallery: normalized.site.gallery ? { categories: [], items: [] } : null,
     posts: normalized.site.blog ? {} : null,
+    reviews: normalized.site.reviews ? [] : null,
     images: Object.fromEntries(
       normalized.slots.map((s) => [
         s.key,

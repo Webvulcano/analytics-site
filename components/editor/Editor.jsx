@@ -20,8 +20,8 @@ import ResizableAside, { usePanelWidth } from "./ResizableAside";
 import { EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
 
 const clone = (v) => (v === undefined ? v : structuredClone(v));
-// Client sites mark gallery-module areas with data-cms="@gallery": managed on the gallery page.
-const GALLERY_KEY = "@gallery";
+// Client sites mark module areas with data-cms="@gallery" / "@reviews": managed on their own admin page.
+const MODULE_KEYS = { "@gallery": { labelKey: "galleryLabel", segment: "portfolio" }, "@reviews": { labelKey: "reviewsLabel", segment: "ertekelesek" } };
 
 // The page's path in the given locale; pages without per-locale paths use `path` everywhere.
 const localePath = (page, locale) => page.paths?.[locale] ?? page.path;
@@ -49,7 +49,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [revision, setRevision] = useState(0); // remounts editors after cancel/reset
-  const [galleryHint, setGalleryHint] = useState(false);
+  const [moduleHint, setModuleHint] = useState(null); // { label, href } of a module area clicked in the preview
   const [panelWidth, setPanelWidth, commitPanelWidth] = usePanelWidth();
 
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
@@ -115,18 +115,19 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       } else if (msg.type === MSG.PATH) {
         setConnected(true);
       } else if (msg.type === MSG.SELECT && typeof msg.key === "string") {
-        if (msg.key === GALLERY_KEY && site.galleryLabel) {
-          setGalleryHint(true);
+        const mod = MODULE_KEYS[msg.key];
+        if (mod && site[mod.labelKey]) {
+          setModuleHint({ label: site[mod.labelKey], href: `/${site.slug}/${mod.segment}` });
           return;
         }
         if (!fieldsByKey.has(msg.key) && !slotsByKey.has(msg.key)) return;
-        setGalleryHint(false);
+        setModuleHint(null);
         selectTarget({ key: msg.key, i: msg.i ?? null, f: msg.f ?? null });
       }
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [siteOrigin, post, selectTarget, fieldsByKey, slotsByKey, site.galleryLabel]);
+  }, [siteOrigin, post, selectTarget, fieldsByKey, slotsByKey, site]);
 
   // On a full page load the framed site can hydrate before this page does: its HELLO and
   // the iframe's load event both fire before we listen. If so, its bridge is already
@@ -481,7 +482,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
           )}
         </div>
 
-        {galleryHint && !(target && (field || slot)) && (
+        {moduleHint && !(target && (field || slot)) && (
           <ResizableAside
             width={panelWidth}
             onResize={setPanelWidth}
@@ -489,15 +490,15 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
             className="border-t border-zinc-200 bg-white p-4 text-sm md:border-l md:border-t-0 dark:border-zinc-800 dark:bg-zinc-900"
           >
             <div className="flex items-start justify-between gap-3">
-              <p className="font-semibold">{site.galleryLabel}</p>
-              <button type="button" onClick={() => setGalleryHint(false)} aria-label="Bezárás" className="text-zinc-500">
+              <p className="font-semibold">{moduleHint.label}</p>
+              <button type="button" onClick={() => setModuleHint(null)} aria-label="Bezárás" className="text-zinc-500">
                 ✕
               </button>
             </div>
             <p className="mt-2 text-zinc-600 dark:text-zinc-300">
-              Ezeket az elemeket (képek, videók, kategóriák) a {site.galleryLabel} menüben kezeled.
+              Ezt a részt a(z) {moduleHint.label} menüben kezeled.
             </p>
-            <a href={`/${site.slug}/portfolio`} className="mt-3 inline-block font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
+            <a href={moduleHint.href} className="mt-3 inline-block font-semibold text-indigo-600 hover:underline dark:text-indigo-400">
               Megnyitás →
             </a>
           </ResizableAside>

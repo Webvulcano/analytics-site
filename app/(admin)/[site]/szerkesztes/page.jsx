@@ -77,6 +77,7 @@ export default async function EditorPage({ params }) {
         readOnly: site.status !== "active",
         locked: editingLocked(site),
         galleryLabel: site.gallery?.label ?? null,
+        reviewsLabel: site.reviews?.label ?? null,
       }}
       fields={fields.data.map(({ id, ...f }) => f)}
       initialValues={valueMap}
