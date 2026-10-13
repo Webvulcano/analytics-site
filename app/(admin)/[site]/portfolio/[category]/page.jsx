@@ -20,7 +20,7 @@ export default async function GalleryCategoryPage({ params }) {
       .order("created_at"),
     supabase
       .from("gallery_items")
-      .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, position, category_id")
+      .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
       .eq("site_id", site.id)
       .eq("category_id", categoryId)
       .order("position")

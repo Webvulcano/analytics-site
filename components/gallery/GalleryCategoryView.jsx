@@ -18,6 +18,7 @@ import SortableGrid from "./SortableGrid";
 import VideoForm from "./VideoForm";
 import { Notice, publishNotice } from "./Modal";
 import { itemThumb, takenLinks } from "./utils";
+import { FramedImage, cssAspect } from "./FocusPicker";
 
 const PARALLEL = 2;
 
@@ -231,10 +232,11 @@ export default function GalleryCategoryView({ site, locales, category, categorie
         </div>
       ) : (
         <ItemsGrid
-          key={items.map((i) => `${i.id}:${i.position}`).join("|")}
+          key={items.map((i) => `${i.id}:${i.position}:${i.focus_x}:${i.focus_y}:${i.fit}`).join("|")}
           items={items}
           readOnly={site.readOnly}
           defaultLocale={def}
+          aspect={site.gallery?.aspect}
           onReorder={handleReorder}
           onSelect={setSelectedId}
         />
@@ -296,7 +298,7 @@ export default function GalleryCategoryView({ site, locales, category, categorie
 }
 
 // Keyed by the server order: remounts (resets local order) whenever fresh data arrives.
-function ItemsGrid({ items, readOnly, defaultLocale, onReorder, onSelect }) {
+function ItemsGrid({ items, readOnly, defaultLocale, aspect, onReorder, onSelect }) {
   const [order, setOrder] = useState(items);
 
   async function reorder(next) {
@@ -318,9 +320,9 @@ function ItemsGrid({ items, readOnly, defaultLocale, onReorder, onSelect }) {
           onClick={() => onSelect(item.id)}
           className="group block w-full overflow-hidden rounded-lg border border-zinc-200 bg-white text-left hover:border-zinc-400 dark:border-zinc-800 dark:bg-zinc-900"
         >
-          <div className="relative aspect-[4/3] bg-zinc-100 dark:bg-zinc-800">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={itemThumb(item)} alt="" draggable={false} loading="lazy" className="h-full w-full object-cover" />
+          {/* Same card shape + crop as on the website */}
+          <div className="relative overflow-hidden bg-zinc-100 dark:bg-zinc-800" style={{ aspectRatio: cssAspect(aspect) }}>
+            <FramedImage src={itemThumb(item)} focus={{ x: item.focus_x ?? 50, y: item.focus_y ?? 50 }} fit={item.fit} />
             {item.kind === "video" && (
               <span className="absolute left-2 top-2 rounded bg-black/70 px-1.5 py-0.5 text-[10px] font-semibold text-white">
                 ▶ VIDEÓ

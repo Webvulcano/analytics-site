@@ -183,7 +183,7 @@ export async function addPhoto({ siteSlug, categoryId, path, width, height, byte
       alt: alts,
       position: await nextPosition(ctx, "gallery_items", "category_id", cat.id),
     })
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, position, category_id")
+    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 
@@ -212,7 +212,7 @@ export async function addVideo({ siteSlug, categoryId, url, title, year }) {
       year: y.value,
       position: await nextPosition(ctx, "gallery_items", "category_id", cat.id),
     })
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, position, category_id")
+    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 
@@ -226,8 +226,25 @@ function parseYear(year) {
   return { value: y };
 }
 
+// Crop anchor in % (0–100) + fit mode; undefined = unchanged.
+function parseFocus(focus, fit) {
+  const out = {};
+  if (focus !== undefined) {
+    const x = Number(focus?.x);
+    const y = Number(focus?.y);
+    if (![x, y].every((n) => Number.isInteger(n) && n >= 0 && n <= 100)) return { error: "Érvénytelen fókuszpont." };
+    out.focus_x = x;
+    out.focus_y = y;
+  }
+  if (fit !== undefined) {
+    if (fit !== "cover" && fit !== "contain") return { error: "Érvénytelen megjelenítési mód." };
+    out.fit = fit;
+  }
+  return { value: out };
+}
+
 // coverPath: videos only — a just-uploaded own cover image (null = back to the YouTube thumbnail).
-export async function updateItem({ siteSlug, id, title, alt, year, categoryId, coverPath }) {
+export async function updateItem({ siteSlug, id, title, alt, year, categoryId, coverPath, focus, fit }) {
   const ctx = await context(siteSlug);
   if (ctx.error) return { ok: false, error: ctx.error };
   if (!UUID.test(String(id))) return { ok: false, error: "Ismeretlen elem." };
@@ -243,7 +260,9 @@ export async function updateItem({ siteSlug, id, title, alt, year, categoryId, c
 
   const y = parseYear(year);
   if (y.error) return { ok: false, error: y.error };
-  const patch = { title: cleanLocaleMap(title, ctx.locales, MAX_TITLE), year: y.value };
+  const f = parseFocus(focus, fit);
+  if (f.error) return { ok: false, error: f.error };
+  const patch = { title: cleanLocaleMap(title, ctx.locales, MAX_TITLE), year: y.value, ...f.value };
 
   if (item.kind === "photo") {
     patch.alt = cleanLocaleMap(alt, ctx.locales, MAX_ALT);
@@ -272,7 +291,7 @@ export async function updateItem({ siteSlug, id, title, alt, year, categoryId, c
     .from("gallery_items")
     .update(patch)
     .eq("id", item.id)
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, position, category_id")
+    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 

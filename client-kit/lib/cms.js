@@ -160,7 +160,8 @@ function createAccessor(data, requestedLocale) {
       const d = toDefault(slot);
       return d ? [d] : [];
     },
-    // Gallery module: { categories: [{ slug, title, link }], items: [{ id, category, kind, src, width, height, youtubeId, title, year, alt }] }
+    // Gallery module: { categories: [{ slug, title, link }], items: [{ id, category, kind, src, width, height, youtubeId, title, year, alt, focus, fit, objectPosition }] }
+    // focus = { x, y } in % (crop anchor for object-fit: cover), fit = "cover" | "contain" (show the whole image).
     // Titles/alts resolved to the current locale. null when the site has no gallery.
     gallery() {
       const g = data.gallery;
@@ -178,6 +179,9 @@ function createAccessor(data, requestedLocale) {
           title: pick(it.title) ?? "",
           year: it.year ?? null,
           alt: pick(it.alt) ?? "",
+          focus: { x: it.fx ?? 50, y: it.fy ?? 50 },
+          fit: it.fit === "contain" ? "contain" : "cover",
+          objectPosition: `${it.fx ?? 50}% ${it.fy ?? 50}%`,
         })),
       };
     },

@@ -7,13 +7,15 @@ import { discardUpload, uploadGalleryImage } from "@/lib/image/upload";
 import { youtubeThumb } from "@/lib/gallery";
 import { itemThumb } from "./utils";
 import { Notice, inputClass } from "./Modal";
+import FocusPicker from "./FocusPicker";
 
-// Side panel for one photo / video: title, year, alt text, move to another category, delete.
+// Side panel for one photo / video: crop focus / fit, title, year, alt text, move to another category, delete.
 export default function ItemPanel({ site, locales, item, categories, onDone, onClose }) {
   const [title, setTitle] = useState(item.title ?? {});
   const [alt, setAlt] = useState(item.alt ?? {});
   const [year, setYear] = useState(item.year ? String(item.year) : "");
   const [categoryId, setCategoryId] = useState(item.category_id);
+  const [view, setView] = useState({ focus: { x: item.focus_x ?? 50, y: item.focus_y ?? 50 }, fit: item.fit ?? "cover" });
   const [cover, setCover] = useState(undefined); // video: undefined = unchanged, null = YouTube, { blob, url, ... } = new
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
@@ -52,7 +54,7 @@ export default function ItemPanel({ site, locales, item, categories, onDone, onC
       setError(e.message);
       return;
     }
-    const res = await updateItem({ siteSlug: site.slug, id: item.id, title, alt, year, categoryId, coverPath });
+    const res = await updateItem({ siteSlug: site.slug, id: item.id, title, alt, year, categoryId, coverPath, focus: view.focus, fit: view.fit });
     setBusy(false);
     if (!res.ok) {
       if (coverPath) await discardUpload(coverPath);
@@ -79,8 +81,14 @@ export default function ItemPanel({ site, locales, item, categories, onDone, onC
       </div>
 
       <form id="item-form" onSubmit={save} className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={preview} alt="" className="max-h-64 w-full rounded-lg bg-zinc-100 object-contain dark:bg-zinc-800" />
+        <FocusPicker
+          src={preview}
+          focus={view.focus}
+          fit={view.fit}
+          aspect={site.gallery?.aspect}
+          readOnly={site.readOnly}
+          onChange={setView}
+        />
         {!isPhoto && !site.readOnly && (
           <div className="flex flex-wrap items-center gap-3 text-xs">
             <label className="cursor-pointer font-medium text-indigo-600 hover:underline dark:text-indigo-400">

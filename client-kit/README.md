@@ -44,6 +44,11 @@ node scripts/copy-client-kit.mjs <ügyféloldal repo>
 - Előnézet: az admin linkje `{siteUrl}/api/preview?post=<id>&token=<token>` - a weboldalon kell egy route, ami `getPostPreview(id, token)`-nel ellenőriz, `draftMode()`-ot kapcsol és a cikkre irányít (minta: Hallásgondozó `app/api/preview`).
 - Meglévő MDX-cikkek átvétele: `node scripts/import-mdx-posts.mjs <repo> [--run]` (admin repó).
 
+## Galéria (portfólió) — fókuszpont
+- Manifest: `gallery: { label, maxWidth, aspect: "16/9", links }` — `aspect` = a kártyák aránya a weboldalon (az admin ebben mutat előnézetet).
+- `cms.gallery().items[i]`: `objectPosition` (`"x% y%"`), `fit` (`"cover"` | `"contain"`), `focus: { x, y }`.
+- Kártyán: `cover` → `object-cover` + `style={{ objectPosition }}`; `contain` → a kép `object-contain`, mögötte ugyanaz `object-cover blur` háttérnek (minta: StillSoul `app/portfolio/CoverImage.jsx`).
+
 ## Többnyelvű oldal
 - `locales`: az első az alapnyelv. Fordítás mezőnként: `default` (alapnyelv) + `translations: { en: …, de: … }`.
 - Ha a nyelvek külön útvonalon vannak, `page.path` nyelvenként: `{ hu: "/hallokeszulekek", en: "/en/hearing-aids" }`. A szerkesztő az előnézetben a választott nyelv oldalát tölti be.

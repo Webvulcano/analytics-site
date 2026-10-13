@@ -168,7 +168,10 @@ export function normalizeManifest(manifest) {
       if (!/^[a-z0-9_-]{1,40}$/.test(l.key ?? "")) fail(`érvénytelen gallery link key: ${l.key}`);
       return { key: l.key, label: l.label ?? l.key };
     });
-    gallery = { label: g.label ?? "Galéria", maxWidth: g.maxWidth ?? 2000, quality: g.quality ?? 80, links };
+    // aspect = the card shape the site shows thumbnails in ("16/9", "1/1", "4/5"…) → admin focus preview.
+    const aspect = g.aspect ?? "16/9";
+    if (!/^\d+(\.\d+)?\/\d+(\.\d+)?$/.test(aspect)) fail(`érvénytelen gallery.aspect: ${aspect} (pl. "16/9")`);
+    gallery = { label: g.label ?? "Galéria", maxWidth: g.maxWidth ?? 2000, quality: g.quality ?? 80, aspect, links };
   }
 
   // Blog-modul: cikkek az adminban (Blog menü). locales = mely nyelveken van blog; path / postPath nyelvenként
