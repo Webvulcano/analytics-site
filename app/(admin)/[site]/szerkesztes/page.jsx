@@ -2,6 +2,7 @@ import { requireSite } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { frameUrl } from "@/lib/site-env";
 import Editor from "@/components/editor/Editor";
+import { editingLocked } from "@/lib/editor/lock";
 
 export const metadata = { title: "Szerkesztés" };
 
@@ -21,14 +22,14 @@ export default async function EditorPage({ params }) {
     supabase
       .from("image_slots")
       .select(
-        "id, key, page_key, section_key, section_label, label, help, kind, max_width, max_height, aspect, quality, default_src, default_width, default_height, default_alt, sort"
+        "id, key, page_key, section_key, section_label, label, help, kind, max_width, max_height, max_items, aspect, quality, default_src, default_width, default_height, default_alt, sort"
       )
       .eq("site_id", site.id)
       .is("archived_at", null)
       .order("sort"),
     supabase.from("site_locales").select("locale, label").eq("site_id", site.id).order("sort"),
     supabase.from("site_pages").select("key, label, path, paths").eq("site_id", site.id).order("sort"),
-    supabase.from("images").select("slot_id, path, width, height, bytes, alt, position").eq("site_id", site.id).order("position"),
+    supabase.from("images").select("id, slot_id, path, width, height, bytes, alt, position").eq("site_id", site.id).order("position"),
   ]);
 
   const failed = [fields, values, slots, locales, pages, images].find((r) => r.error);
@@ -42,12 +43,15 @@ export default async function EditorPage({ params }) {
     if (key) (valueMap[key] ??= {})[row.locale] = row.value;
   }
 
-  // { [slotKey]: image } — single slots only use their first image.
-  const slotKeyById = new Map(slots.data.map((s) => [s.id, s.key]));
+  // Single slots: { [slotKey]: image } (first image). Gallery slots: { [slotKey]: [images] } in order.
+  const slotById = new Map(slots.data.map((s) => [s.id, s]));
   const imageMap = {};
+  const galleryMap = {};
   for (const { slot_id, ...img } of images.data) {
-    const key = slotKeyById.get(slot_id);
-    if (key && !imageMap[key]) imageMap[key] = img;
+    const slot = slotById.get(slot_id);
+    if (!slot) continue;
+    if (slot.kind === "gallery") (galleryMap[slot.key] ??= []).push(img);
+    else if (!imageMap[slot.key]) imageMap[slot.key] = img;
   }
 
   if (fields.data.length === 0 && slots.data.length === 0) {
@@ -71,12 +75,14 @@ export default async function EditorPage({ params }) {
         previewUrl: frameUrl(site),
         defaultLocale: site.default_locale,
         readOnly: site.status !== "active",
+        locked: editingLocked(site),
         galleryLabel: site.gallery?.label ?? null,
       }}
       fields={fields.data.map(({ id, ...f }) => f)}
       initialValues={valueMap}
       slots={slots.data.map(({ id, ...s }) => s)}
       initialImages={imageMap}
+      initialGalleries={galleryMap}
       locales={locales.data}
       pages={pages.data.length ? pages.data : [{ key: "home", label: "Főoldal", path: "/", paths: {} }]}
     />

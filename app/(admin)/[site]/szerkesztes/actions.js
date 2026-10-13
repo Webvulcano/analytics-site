@@ -4,7 +4,7 @@ import { requireSite } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { validateFieldValue } from "@/lib/content/validate";
 import { publishSite } from "@/lib/publish";
-import { EDITING_LOCKED, EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
+import { EDITING_LOCKED_MESSAGE, editingLocked } from "@/lib/editor/lock";
 
 // Server Actions are public endpoints: every action re-checks the session and site
 // access (requireSite) and validates input; RLS enforces the same again in the DB.
@@ -32,7 +32,7 @@ async function loadField(supabase, site, key, locale) {
 
 export async function saveField({ siteSlug, key, locale, value }) {
   const { site, user } = await requireSite(String(siteSlug));
-  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
+  if (editingLocked(site)) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -62,7 +62,7 @@ export async function saveField({ siteSlug, key, locale, value }) {
 // Back to the manifest default: delete the saved value (kept in content_revisions).
 export async function resetField({ siteSlug, key, locale }) {
   const { site } = await requireSite(String(siteSlug));
-  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
+  if (editingLocked(site)) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -120,7 +120,7 @@ async function removeObjects(supabase, paths) {
 // The browser already uploaded the WebP (RLS-checked); this attaches it to the slot.
 export async function commitImage({ siteSlug, slotKey, path, width, height, alt, locale }) {
   const { site } = await requireSite(String(siteSlug));
-  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
+  if (editingLocked(site)) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -166,7 +166,7 @@ export async function commitImage({ siteSlug, slotKey, path, width, height, alt,
 
 export async function saveImageAlt({ siteSlug, slotKey, alt, locale }) {
   const { site } = await requireSite(String(siteSlug));
-  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
+  if (editingLocked(site)) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -190,7 +190,7 @@ export async function saveImageAlt({ siteSlug, slotKey, alt, locale }) {
 // Back to the template image: drop the slot's uploaded image(s).
 export async function resetImage({ siteSlug, slotKey }) {
   const { site } = await requireSite(String(siteSlug));
-  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
+  if (editingLocked(site)) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -210,4 +210,121 @@ export async function retryPublish({ siteSlug }) {
   const supabase = await createClient();
   const pub = await publishSite(supabase, site);
   return { ok: pub.published, error: pub.error };
+}
+
+// ── Gallery image slots (e.g. a logo strip): every change is saved immediately ──
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+// Shared checks; returns { site, supabase, slot } or { error }.
+async function gallerySlotContext(siteSlug, slotKey) {
+  const { site } = await requireSite(String(siteSlug));
+  if (editingLocked(site)) return { error: EDITING_LOCKED_MESSAGE };
+  if (site.status !== "active") return { error: "Ez a weboldal jelenleg csak olvasható." };
+  const supabase = await createClient();
+  const slot = await loadSlot(supabase, site, String(slotKey));
+  if (!slot || slot.kind !== "gallery") return { error: "Ismeretlen képhely." };
+  return { site, supabase, slot };
+}
+
+// { hu: "…", en: "…" } → trimmed, only the site's locales, empty ones dropped.
+async function cleanAltMap(supabase, site, alt) {
+  const { data: locales } = await supabase.from("site_locales").select("locale").eq("site_id", site.id);
+  const out = {};
+  for (const { locale } of locales ?? []) {
+    const v = cleanAlt(alt?.[locale]);
+    if (v) out[locale] = v;
+  }
+  return out;
+}
+
+const IMAGE_COLS = "id, path, width, height, bytes, alt, position";
+
+// The browser already uploaded the WebP; this appends it to the slot (max_items checked in the DB).
+// deferPublish: the caller uploads a batch and publishes once at the end (retryPublish).
+export async function addSlotImage({ siteSlug, slotKey, path, width, height, alt, deferPublish = false }) {
+  const ctx = await gallerySlotContext(siteSlug, slotKey);
+  if (ctx.error) return { ok: false, error: ctx.error };
+  const { site, supabase, slot } = ctx;
+
+  path = String(path);
+  if (!PATH_RE.test(path) || !path.startsWith(`${site.id}/slots/${slot.key}/`)) {
+    return { ok: false, error: "Érvénytelen fájl-útvonal." };
+  }
+  const w = Number(width);
+  const h = Number(height);
+  if (!Number.isInteger(w) || !Number.isInteger(h) || w < 1 || h < 1) return { ok: false, error: "Érvénytelen képméret." };
+
+  const altMap = await cleanAltMap(supabase, site, alt);
+  if (!altMap[site.default_locale]) return { ok: false, error: "A kép leírása (alt szöveg) kötelező." };
+
+  const { data, error } = await supabase.rpc("cms_commit_image", {
+    p_slot: slot.id,
+    p_path: path,
+    p_width: w,
+    p_height: h,
+    p_alt: altMap,
+  });
+  if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
+
+  const { data: image } = await supabase.from("images").select(IMAGE_COLS).eq("id", data.id).single();
+  if (deferPublish) return { ok: true, image };
+  const pub = await publishSite(supabase, site);
+  return { ok: true, image, published: pub.published, publishError: pub.error };
+}
+
+export async function updateSlotImageAlt({ siteSlug, slotKey, id, alt }) {
+  const ctx = await gallerySlotContext(siteSlug, slotKey);
+  if (ctx.error) return { ok: false, error: ctx.error };
+  const { site, supabase, slot } = ctx;
+  if (!UUID.test(String(id))) return { ok: false, error: "Ismeretlen kép." };
+
+  const altMap = await cleanAltMap(supabase, site, alt);
+  if (!altMap[site.default_locale]) return { ok: false, error: "A kép leírása (alt szöveg) kötelező." };
+
+  const { data: image, error } = await supabase
+    .from("images")
+    .update({ alt: altMap })
+    .eq("slot_id", slot.id)
+    .eq("id", String(id))
+    .select(IMAGE_COLS)
+    .maybeSingle();
+  if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
+  if (!image) return { ok: false, error: "Ismeretlen kép." };
+
+  const pub = await publishSite(supabase, site);
+  return { ok: true, image, published: pub.published, publishError: pub.error };
+}
+
+export async function deleteSlotImage({ siteSlug, slotKey, id }) {
+  const ctx = await gallerySlotContext(siteSlug, slotKey);
+  if (ctx.error) return { ok: false, error: ctx.error };
+  const { site, supabase, slot } = ctx;
+  if (!UUID.test(String(id))) return { ok: false, error: "Ismeretlen kép." };
+
+  const { data: removed, error } = await supabase
+    .from("images")
+    .delete()
+    .eq("slot_id", slot.id)
+    .eq("id", String(id))
+    .select("path");
+  if (error) return { ok: false, error: `Törlés sikertelen: ${error.message}` };
+  if (!removed?.length) return { ok: false, error: "Ismeretlen kép." };
+
+  await removeObjects(supabase, removed.map((r) => r.path));
+  const pub = await publishSite(supabase, site);
+  return { ok: true, published: pub.published, publishError: pub.error };
+}
+
+export async function reorderSlotImages({ siteSlug, slotKey, ids }) {
+  const ctx = await gallerySlotContext(siteSlug, slotKey);
+  if (ctx.error) return { ok: false, error: ctx.error };
+  const { site, supabase, slot } = ctx;
+  if (!Array.isArray(ids) || !ids.every((x) => UUID.test(String(x)))) return { ok: false, error: "Érvénytelen sorrend." };
+
+  const { error } = await supabase.rpc("cms_reorder_images", { p_slot: slot.id, p_ids: ids.map(String) });
+  if (error) return { ok: false, error: `Sorrend mentése sikertelen: ${error.message}` };
+
+  const pub = await publishSite(supabase, site);
+  return { ok: true, published: pub.published, publishError: pub.error };
 }

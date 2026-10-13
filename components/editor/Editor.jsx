@@ -13,10 +13,11 @@ import {
 } from "@/app/(admin)/[site]/szerkesztes/actions";
 import { discardUpload, uploadSlotImage } from "@/lib/image/upload";
 import PreviewFrame from "./PreviewFrame";
-import EditPanel from "./EditPanel";
+import EditPanel, { PanelShell } from "./EditPanel";
+import GallerySlotEditor from "./GallerySlotEditor";
 import AllFieldsList from "./AllFieldsList";
 import ResizableAside, { usePanelWidth } from "./ResizableAside";
-import { EDITING_LOCKED, EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
+import { EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
 
 const clone = (v) => (v === undefined ? v : structuredClone(v));
 // Client sites mark gallery-module areas with data-cms="@gallery": managed on the gallery page.
@@ -25,7 +26,7 @@ const GALLERY_KEY = "@gallery";
 // The page's path in the given locale; pages without per-locale paths use `path` everywhere.
 const localePath = (page, locale) => page.paths?.[locale] ?? page.path;
 
-export default function Editor({ site, fields, initialValues, initialImages, slots, locales, pages }) {
+export default function Editor({ site, fields, initialValues, initialImages, initialGalleries, slots, locales, pages }) {
   const frameRef = useRef(null);
   // The framed site: the preview deploy if the site has one (e.g. for not-yet-live languages).
   const siteOrigin = useMemo(() => new URL(site.previewUrl).origin, [site.previewUrl]);
@@ -34,6 +35,7 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
 
   const [values, setValues] = useState(initialValues);
   const [images, setImages] = useState(initialImages); // { [slotKey]: saved image }
+  const [galleries, setGalleries] = useState(initialGalleries ?? {}); // { [slotKey]: [images] } (gallery slots)
   const [locale, setLocale] = useState(site.defaultLocale);
   const [pageKey, setPageKey] = useState(pages[0].key);
   const [device, setDevice] = useState("desktop");
@@ -331,6 +333,13 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
     setStatus(null);
   }
 
+  // Gallery slots save immediately (no draft): reload the framed page to show the published change.
+  function reloadPreview() {
+    if (!frameRef.current) return;
+    setConnected(false);
+    frameRef.current.src = src;
+  }
+
   function changeMode(next) {
     setMode(next);
     post({ type: MSG.MODE, mode: next });
@@ -494,7 +503,29 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
           </ResizableAside>
         )}
 
-        {target && (field || slot) && (
+        {target && slot?.kind === "gallery" && (
+          <PanelShell
+            title={slot.label}
+            section={slot.section_label}
+            onClose={closePanel}
+            resize={{ width: panelWidth, onResize: setPanelWidth, onResizeEnd: commitPanelWidth }}
+            lockedMessage={site.locked ? EDITING_LOCKED_MESSAGE : null}
+          >
+            <div className="p-4">
+              <GallerySlotEditor
+                site={site}
+                slot={slot}
+                locales={locales}
+                images={galleries[slot.key] ?? []}
+                onImagesChange={(next) => setGalleries((g) => ({ ...g, [slot.key]: next }))}
+                onSaved={reloadPreview}
+                disabled={site.readOnly || site.locked}
+              />
+            </div>
+          </PanelShell>
+        )}
+
+        {target && (field || (slot && slot.kind !== "gallery")) && (
           <EditPanel
             key={`${target.key}|${target.i}|${target.f}|${locale}|${revision}`}
             item={field ? { kind: "field", field } : { kind: "slot", slot }}
@@ -510,8 +541,8 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
             saving={saving}
             status={status}
             canReset={field ? hasOwnValue(field, values, locale, site.defaultLocale) : Boolean(images[slot.key])}
-            readOnly={site.readOnly || EDITING_LOCKED}
-            lockedMessage={EDITING_LOCKED ? EDITING_LOCKED_MESSAGE : null}
+            readOnly={site.readOnly || site.locked}
+            lockedMessage={site.locked ? EDITING_LOCKED_MESSAGE : null}
             localeNote={localeNote}
             siteUrl={site.siteUrl}
             image={slot ? images[slot.key] : undefined}

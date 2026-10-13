@@ -187,7 +187,7 @@ function PanelFooter({ status, onRetryPublish, onReset, resetLabel, canReset, on
   );
 }
 
-function PanelShell({ title, section, onClose, children, footer, resize, lockedMessage }) {
+export function PanelShell({ title, section, onClose, children, footer, resize, lockedMessage }) {
   return (
     <ResizableAside
       {...resize}
