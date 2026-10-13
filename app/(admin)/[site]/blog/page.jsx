@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { requireSite } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { frameUrl } from "@/lib/site-env";
 import BlogList from "@/components/blog/BlogList";
 import { purgeTrash } from "./actions";
 
@@ -33,7 +34,7 @@ export default async function BlogPage({ params }) {
       site={{
         slug: site.slug,
         siteUrl: site.site_url,
-        previewBase: site.preview_url ?? site.site_url,
+        previewBase: frameUrl(site),
         blog: site.blog,
         readOnly: site.status !== "active",
       }}

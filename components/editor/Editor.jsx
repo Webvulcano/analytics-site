@@ -16,6 +16,7 @@ import PreviewFrame from "./PreviewFrame";
 import EditPanel from "./EditPanel";
 import AllFieldsList from "./AllFieldsList";
 import ResizableAside, { usePanelWidth } from "./ResizableAside";
+import { EDITING_LOCKED, EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
 
 const clone = (v) => (v === undefined ? v : structuredClone(v));
 // Client sites mark gallery-module areas with data-cms="@gallery": managed on the gallery page.
@@ -509,7 +510,8 @@ export default function Editor({ site, fields, initialValues, initialImages, slo
             saving={saving}
             status={status}
             canReset={field ? hasOwnValue(field, values, locale, site.defaultLocale) : Boolean(images[slot.key])}
-            readOnly={site.readOnly}
+            readOnly={site.readOnly || EDITING_LOCKED}
+            lockedMessage={EDITING_LOCKED ? EDITING_LOCKED_MESSAGE : null}
             localeNote={localeNote}
             siteUrl={site.siteUrl}
             image={slot ? images[slot.key] : undefined}

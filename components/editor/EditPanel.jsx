@@ -19,6 +19,7 @@ export default function EditPanel({
   status,
   canReset,
   readOnly,
+  lockedMessage, // set → panel content is covered by a "disabled" overlay
   localeNote,
   siteUrl,
   onRetryPublish,
@@ -29,6 +30,7 @@ export default function EditPanel({
   onPanelResizeEnd,
 }) {
   const resize = { width: panelWidth, onResize: onPanelResize, onResizeEnd: onPanelResizeEnd };
+  const shell = { onClose, resize, lockedMessage };
   const footer = (
     <PanelFooter
       status={status}
@@ -46,10 +48,10 @@ export default function EditPanel({
 
   if (item.kind === "slot") {
     return (
-      <PanelShell title={item.slot.label} section={item.slot.section_label} onClose={onClose} footer={footer} resize={resize}>
+      <PanelShell title={item.slot.label} section={item.slot.section_label} footer={footer} {...shell}>
         <div className="space-y-4 p-4">
           {localeNote && <p className="text-xs text-zinc-500">{localeNote}</p>}
-          {readOnly && <ReadOnlyNote />}
+          {readOnly && !lockedMessage && <ReadOnlyNote />}
           <ImageEditor
             slot={item.slot}
             image={image}
@@ -111,13 +113,12 @@ export default function EditPanel({
     <PanelShell
       title={isList && target.i != null ? `${field.label} — ${target.i + 1}. elem` : field.label}
       section={field.section_label}
-      onClose={onClose}
       footer={footer}
-      resize={resize}
+      {...shell}
     >
       <div className="space-y-4 p-4">
         {localeNote && <p className="text-xs text-zinc-500">{localeNote}</p>}
-        {readOnly && <ReadOnlyNote />}
+        {readOnly && !lockedMessage && <ReadOnlyNote />}
         {body}
       </div>
     </PanelShell>
@@ -186,7 +187,7 @@ function PanelFooter({ status, onRetryPublish, onReset, resetLabel, canReset, on
   );
 }
 
-function PanelShell({ title, section, onClose, children, footer, resize }) {
+function PanelShell({ title, section, onClose, children, footer, resize, lockedMessage }) {
   return (
     <ResizableAside
       {...resize}
@@ -206,8 +207,32 @@ function PanelShell({ title, section, onClose, children, footer, resize }) {
           ✕
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>
-      {footer && <div className="border-t border-zinc-200 p-4 dark:border-zinc-800">{footer}</div>}
+      <div className="relative flex min-h-0 flex-1 flex-col">
+        <div className="min-h-0 flex-1 overflow-y-auto" inert={lockedMessage ? true : undefined}>{children}</div>
+        {footer && (
+          <div className="border-t border-zinc-200 p-4 dark:border-zinc-800" inert={lockedMessage ? true : undefined}>
+            {footer}
+          </div>
+        )}
+        {lockedMessage && (
+          // Covers content + footer; the header (close button) stays usable.
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/75 p-6 backdrop-blur-[2px] dark:bg-zinc-900/75">
+            <div
+              role="status"
+              className="flex max-w-xs items-start gap-2.5 rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 shadow-sm dark:border-sky-900 dark:bg-sky-950 dark:text-sky-100"
+            >
+              <svg viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" className="mt-0.5 size-4 shrink-0 text-sky-500">
+                <path
+                  fillRule="evenodd"
+                  d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z"
+                  clipRule="evenodd"
+                />
+              </svg>
+              <p>{lockedMessage}</p>
+            </div>
+          </div>
+        )}
+      </div>
     </ResizableAside>
   );
 }

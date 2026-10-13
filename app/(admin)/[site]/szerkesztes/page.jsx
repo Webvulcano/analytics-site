@@ -1,5 +1,6 @@
 import { requireSite } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
+import { frameUrl } from "@/lib/site-env";
 import Editor from "@/components/editor/Editor";
 
 export const metadata = { title: "Szerkesztés" };
@@ -67,7 +68,7 @@ export default async function EditorPage({ params }) {
         slug: site.slug,
         name: site.name,
         siteUrl: site.site_url,
-        previewUrl: site.preview_url ?? site.site_url,
+        previewUrl: frameUrl(site),
         defaultLocale: site.default_locale,
         readOnly: site.status !== "active",
         galleryLabel: site.gallery?.label ?? null,

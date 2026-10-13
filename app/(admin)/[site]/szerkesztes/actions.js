@@ -4,6 +4,7 @@ import { requireSite } from "@/lib/dal";
 import { createClient } from "@/lib/supabase/server";
 import { validateFieldValue } from "@/lib/content/validate";
 import { publishSite } from "@/lib/publish";
+import { EDITING_LOCKED, EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
 
 // Server Actions are public endpoints: every action re-checks the session and site
 // access (requireSite) and validates input; RLS enforces the same again in the DB.
@@ -31,6 +32,7 @@ async function loadField(supabase, site, key, locale) {
 
 export async function saveField({ siteSlug, key, locale, value }) {
   const { site, user } = await requireSite(String(siteSlug));
+  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -60,6 +62,7 @@ export async function saveField({ siteSlug, key, locale, value }) {
 // Back to the manifest default: delete the saved value (kept in content_revisions).
 export async function resetField({ siteSlug, key, locale }) {
   const { site } = await requireSite(String(siteSlug));
+  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -117,6 +120,7 @@ async function removeObjects(supabase, paths) {
 // The browser already uploaded the WebP (RLS-checked); this attaches it to the slot.
 export async function commitImage({ siteSlug, slotKey, path, width, height, alt, locale }) {
   const { site } = await requireSite(String(siteSlug));
+  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -162,6 +166,7 @@ export async function commitImage({ siteSlug, slotKey, path, width, height, alt,
 
 export async function saveImageAlt({ siteSlug, slotKey, alt, locale }) {
   const { site } = await requireSite(String(siteSlug));
+  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
@@ -185,6 +190,7 @@ export async function saveImageAlt({ siteSlug, slotKey, alt, locale }) {
 // Back to the template image: drop the slot's uploaded image(s).
 export async function resetImage({ siteSlug, slotKey }) {
   const { site } = await requireSite(String(siteSlug));
+  if (EDITING_LOCKED) return { ok: false, error: EDITING_LOCKED_MESSAGE };
   if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
 
   const supabase = await createClient();
