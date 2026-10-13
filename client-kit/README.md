@@ -15,6 +15,7 @@ node scripts/copy-client-kit.mjs <ügyféloldal repo>
 | `lib/cms-bridge-protocol.js` | postMessage üzenettípusok az admin szerkesztő és a bridge között. |
 | `components/cms/RichText.jsx` | Biztonságos rich text renderer. |
 | `components/cms/CmsBridge.jsx` | Vizuális szerkesztő híd. Csak az admin iframe-jében aktív. |
+| `components/cms/JsonLd.jsx` | JSON-LD `<script>` (`<JsonLd data={schema} />`). Mindig ezt használd `dangerouslySetInnerHTML` + `JSON.stringify` helyett — az nem escape-eli a `</script>`-et (XSS CMS-szövegből). |
 | `app/api/revalidate/route.js` | POST, Bearer secret. `revalidateTag(…, "max")`, utána bemelegíti az oldalakat. |
 
 ## Bekötés egy ügyféloldalba

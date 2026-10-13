@@ -12,6 +12,7 @@ const FILES = [
   "lib/cms-bridge-protocol.js",
   "components/cms/RichText.jsx",
   "components/cms/CmsBridge.jsx",
+  "components/cms/JsonLd.jsx",
   "app/api/revalidate/route.js",
 ];
 
