@@ -20,8 +20,8 @@ import ResizableAside, { usePanelWidth } from "./ResizableAside";
 import { EDITING_LOCKED_MESSAGE } from "@/lib/editor/lock";
 
 const clone = (v) => (v === undefined ? v : structuredClone(v));
-// Client sites mark module areas with data-cms="@gallery" / "@reviews": managed on their own admin page.
-const MODULE_KEYS = { "@gallery": { labelKey: "galleryLabel", segment: "portfolio" }, "@reviews": { labelKey: "reviewsLabel", segment: "ertekelesek" } };
+// Client sites mark module areas with data-cms="@gallery" / "@reviews" / "@packages": managed on their own admin page.
+const MODULE_KEYS = { "@gallery": { labelKey: "galleryLabel", segment: "portfolio" }, "@reviews": { labelKey: "reviewsLabel", segment: "ertekelesek" }, "@packages": { labelKey: "packagesLabel", segment: "csomagok" } };
 
 // The page's path in the given locale; pages without per-locale paths use `path` everywhere.
 const localePath = (page, locale) => page.paths?.[locale] ?? page.path;

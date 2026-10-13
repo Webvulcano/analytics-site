@@ -78,6 +78,7 @@ export default async function EditorPage({ params }) {
         locked: editingLocked(site),
         galleryLabel: site.gallery?.label ?? null,
         reviewsLabel: site.reviews?.label ?? null,
+        packagesLabel: site.packages?.label ?? null,
       }}
       fields={fields.data.map(({ id, ...f }) => f)}
       initialValues={valueMap}

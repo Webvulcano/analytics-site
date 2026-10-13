@@ -197,6 +197,9 @@ export function normalizeManifest(manifest) {
   // Értékelések-modul: vélemények az adminban (Értékelések menü) → cms.reviews().
   const reviews = m.reviews ? { label: m.reviews.label ?? "Értékelések" } : null;
 
+  // Csomag-modul: kész ajánlatok letölthető PDF-fel az adminban (Csomagok menü) → cms.packages().
+  const packages = m.packages ? { label: m.packages.label ?? "Csomagok" } : null;
+
   const a = m.analytics ?? {};
   return {
     site: {
@@ -214,6 +217,7 @@ export function normalizeManifest(manifest) {
       gallery,
       blog,
       reviews,
+      packages,
     },
     locales,
     members: (m.members ?? []).map((x) => ({ email: x.email.toLowerCase(), role: x.role ?? "editor" })),
@@ -235,6 +239,7 @@ export function offlineContent(normalized) {
     gallery: normalized.site.gallery ? { categories: [], items: [] } : null,
     posts: normalized.site.blog ? {} : null,
     reviews: normalized.site.reviews ? [] : null,
+    packages: normalized.site.packages ? [] : null,
     images: Object.fromEntries(
       normalized.slots.map((s) => [
         s.key,

@@ -16,6 +16,7 @@ export default function Sidebar({ site, sites, user }) {
     ...(site.galleryLabel ? [{ segment: "portfolio", label: site.galleryLabel, icon: GridIcon }] : []),
     ...(site.blogLabel ? [{ segment: "blog", label: site.blogLabel, icon: DocIcon }] : []),
     ...(site.reviewsLabel ? [{ segment: "ertekelesek", label: site.reviewsLabel, icon: StarIcon }] : []),
+    ...(site.packagesLabel ? [{ segment: "csomagok", label: site.packagesLabel, icon: FileIcon }] : []),
     ...NAV.slice(1),
   ];
   const pathname = usePathname();
@@ -117,6 +118,15 @@ function StarIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" className="h-4 w-4">
       <path d="M10 2.8l2.2 4.6 5 .7-3.6 3.5.9 5-4.5-2.4-4.5 2.4.9-5L2.8 8.1l5-.7L10 2.8z" />
+    </svg>
+  );
+}
+
+function FileIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" strokeLinecap="round" className="h-4 w-4">
+      <path d="M11.5 2.5H5.5a1 1 0 00-1 1v13a1 1 0 001 1h9a1 1 0 001-1V6.5l-4-4z" />
+      <path d="M11.5 2.5v4h4M7.5 11h5M7.5 14h5" />
     </svg>
   );
 }

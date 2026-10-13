@@ -200,6 +200,25 @@ function createAccessor(data, requestedLocale) {
         translated: locale === data.defaultLocale || Boolean(r.body?.[locale]),
       }));
     },
+    // Packages module: [{ id, title, tiers, price, file, fileLocale }] in admin order (visible only).
+    // Texts in the current locale (fallback: default locale). file = download URL of the PDF in the
+    // current locale, else the default-locale PDF (fileLocale tells which one); null when no PDF.
+    // null when the site has no module.
+    packages() {
+      const list = data.packages;
+      if (!list) return null;
+      return list.map((k) => {
+        const fileLocale = k.files?.[locale] ? locale : k.files?.[def] ? def : null;
+        return {
+          id: k.id,
+          title: pick(k.title) ?? "",
+          tiers: pick(k.tiers) ?? "",
+          price: pick(k.price) ?? "",
+          file: fileLocale ? publicUrl(k.files[fileLocale]) : null,
+          fileLocale,
+        };
+      });
+    },
     // data attributes for the visual editor (harmless outside the admin iframe)
     attr(key, i, f) {
       return {
