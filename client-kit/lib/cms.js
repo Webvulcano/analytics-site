@@ -1,7 +1,7 @@
 import { cache } from "react";
 import manifest from "@/cms.manifest";
 import { normalizeManifest, offlineContent } from "./cms-manifest";
-import { toPlainText } from "./cms-richtext";
+import { isSafeHref, toPlainText } from "./cms-richtext";
 
 // CMS content for this website. Reads the cms_get_site_content RPC from Supabase,
 // cached with the tag `cms:<slug>`; the admin revalidates it via /api/revalidate on save.
@@ -102,6 +102,20 @@ export function splitLines(value) {
     .filter(Boolean);
 }
 
+// Values from the DB are shaped defensively (the DB validates them too, this is the second line):
+// a malformed value renders as empty instead of crashing the page or injecting a javascript: link.
+const isPlainObject = (v) => v !== null && typeof v === "object" && !Array.isArray(v);
+const str = (v) => (typeof v === "string" ? v : "");
+
+// List item: only string or rich-text-doc values survive.
+function cleanItem(item) {
+  const out = {};
+  for (const [k, v] of Object.entries(item)) {
+    if (typeof v === "string" || (isPlainObject(v) && v.type === "doc")) out[k] = v;
+  }
+  return out;
+}
+
 function createAccessor(data, requestedLocale) {
   const def = data.defaultLocale;
   const locale = data.locales.includes(requestedLocale) ? requestedLocale : def;
@@ -127,11 +141,14 @@ function createAccessor(data, requestedLocale) {
       return data.posts ? data.posts[loc] ?? 0 : null;
     },
 
-    // Plain string (rich text gets flattened).
+    // Plain string (rich text gets flattened). url fields: only safe links (https:, mailto:, tel:, /, #), else "".
     text(key) {
-      const v = resolve(data.fields[key]);
+      const field = data.fields[key];
+      const v = resolve(field);
       if (v == null) return "";
-      return typeof v === "string" ? v : toPlainText(v);
+      const s = typeof v === "string" ? v : toPlainText(v);
+      if (field.t === "url" && s.trim() && !isSafeHref(s)) return "";
+      return s;
     },
     // Tiptap doc or string → render with <RichText value={...} />.
     rich(key) {
@@ -141,10 +158,10 @@ function createAccessor(data, requestedLocale) {
     lines(key) {
       return splitLines(this.text(key));
     },
-    // list field → array of item objects
+    // list field → array of item objects (string / rich text values only)
     list(key) {
       const v = resolve(data.fields[key]);
-      return Array.isArray(v) ? v : [];
+      return Array.isArray(v) ? v.filter(isPlainObject).map(cleanItem) : [];
     },
     // single image slot → { src, width, height, alt } | null
     image(key) {
@@ -167,7 +184,7 @@ function createAccessor(data, requestedLocale) {
       const g = data.gallery;
       if (!g) return null;
       return {
-        categories: g.categories.map((c) => ({ slug: c.slug, title: pick(c.title) ?? "", link: c.link ?? null })),
+        categories: g.categories.map((c) => ({ slug: c.slug, title: str(pick(c.title)), link: c.link ?? null })),
         items: g.items.map((it) => ({
           id: it.id,
           category: it.c,
@@ -176,9 +193,9 @@ function createAccessor(data, requestedLocale) {
           width: it.w ?? undefined,
           height: it.h ?? undefined,
           youtubeId: it.yt ?? null,
-          title: pick(it.title) ?? "",
+          title: str(pick(it.title)),
           year: it.year ?? null,
-          alt: pick(it.alt) ?? "",
+          alt: str(pick(it.alt)),
           focus: { x: it.fx ?? 50, y: it.fy ?? 50 },
           fit: it.fit === "contain" ? "contain" : "cover",
           objectPosition: `${it.fx ?? 50}% ${it.fy ?? 50}%`,
@@ -194,8 +211,8 @@ function createAccessor(data, requestedLocale) {
       return list.map((r) => ({
         id: r.id,
         author: r.author,
-        subtitle: pick(r.subtitle) ?? "",
-        body: pick(r.body) ?? "",
+        subtitle: str(pick(r.subtitle)),
+        body: str(pick(r.body)),
         rating: r.rating,
         translated: locale === data.defaultLocale || Boolean(r.body?.[locale]),
       }));
@@ -211,9 +228,9 @@ function createAccessor(data, requestedLocale) {
         const fileLocale = k.files?.[locale] ? locale : k.files?.[def] ? def : null;
         return {
           id: k.id,
-          title: pick(k.title) ?? "",
-          tiers: pick(k.tiers) ?? "",
-          price: pick(k.price) ?? "",
+          title: str(pick(k.title)),
+          tiers: str(pick(k.tiers)),
+          price: str(pick(k.price)),
           file: fileLocale ? publicUrl(k.files[fileLocale]) : null,
           fileLocale,
         };

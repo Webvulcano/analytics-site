@@ -6,7 +6,8 @@ const NODES = new Set(["doc", "paragraph", "heading", "text", "hardBreak", "bull
 // Címsor csak 2-es és 3-as szint (a h1 az oldal címe). Csak a blog-szerkesztő kínálja, de a renderer mindenhol ismeri.
 const HEADING_LEVELS = new Set([2, 3]);
 const MARKS = new Set(["bold", "italic", "link"]);
-const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|\/(?!\/)|#)/i;
+// "/path" is a link on this site, but "//host" and "/\host" are both read by browsers as another site.
+const SAFE_HREF = /^(https?:\/\/|mailto:|tel:|\/(?![/\\])|#)/i;
 const MAX_DEPTH = 8;
 
 export function isSafeHref(href) {
