@@ -25,6 +25,12 @@ const MODULE_KEYS = { "@gallery": { labelKey: "galleryLabel", segment: "portfoli
 
 // The page's path in the given locale; pages without per-locale paths use `path` everywhere.
 const localePath = (page, locale) => page.paths?.[locale] ?? page.path;
+const pageUrl = (page, locale, base) => new URL(localePath(page, locale), base).toString();
+
+// The manifest page shown at this path (any language), or null for pages not in the manifest.
+const normPath = (p) => (p.length > 1 ? p.replace(/\/+$/, "") : p);
+const pageForPath = (pages, path) =>
+  pages.find((p) => [p.path, ...Object.values(p.paths ?? {})].some((x) => normPath(x) === normPath(path))) ?? null;
 
 export default function Editor({ site, fields, initialValues, initialImages, initialGalleries, slots, locales, pages }) {
   const frameRef = useRef(null);
@@ -53,7 +59,10 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
   const [panelWidth, setPanelWidth, commitPanelWidth] = usePanelWidth();
 
   const page = pages.find((p) => p.key === pageKey) ?? pages[0];
-  const src = new URL(localePath(page, locale), site.previewUrl).toString();
+  const src = pageUrl(page, locale, site.previewUrl);
+  // What the iframe loads. Changes only on an explicit page / language switch: browsing inside the
+  // preview just moves the page picker along (see MSG.PATH), without reloading the frame.
+  const [frameSrc, setFrameSrc] = useState(src);
   // Does the preview show the selected language? (only if the page has a path for it)
   const previewInLocale = locale === site.defaultLocale || Boolean(page.paths?.[locale]);
 
@@ -114,6 +123,8 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
         post({ type: MSG.INIT, mode: stateRef.current.mode });
       } else if (msg.type === MSG.PATH) {
         setConnected(true);
+        const shown = typeof msg.path === "string" ? pageForPath(pages, msg.path) : null;
+        if (shown) setPageKey(shown.key);
       } else if (msg.type === MSG.SELECT && typeof msg.key === "string") {
         const mod = MODULE_KEYS[msg.key];
         if (mod && site[mod.labelKey]) {
@@ -127,7 +138,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     }
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, [siteOrigin, post, selectTarget, fieldsByKey, slotsByKey, site]);
+  }, [siteOrigin, post, selectTarget, fieldsByKey, slotsByKey, site, pages]);
 
   // On a full page load the framed site can hydrate before this page does: its HELLO and
   // the iframe's load event both fire before we listen. If so, its bridge is already
@@ -290,6 +301,8 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       setDirty(false);
       setRevision((r) => r + 1);
       setStatus(publishStatus(res));
+    } catch {
+      setStatus({ type: "error", text: "Hálózati hiba — a kép nincs visszaállítva. Próbáld újra." });
     } finally {
       setSaving(false);
     }
@@ -315,14 +328,20 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       setDirty(false);
       setRevision((r) => r + 1);
       setStatus(publishStatus(res));
+    } catch {
+      setStatus({ type: "error", text: "Hálózati hiba — a szöveg nincs visszaállítva. Próbáld újra." });
     } finally {
       setSaving(false);
     }
   }
 
   async function handleRetryPublish() {
-    const res = await retryPublish({ siteSlug: site.slug });
-    setStatus(res.ok ? { type: "ok", text: "Élesítve ✓" } : { type: "warn", text: `Még mindig nem sikerült (${res.error}).`, retry: true });
+    try {
+      const res = await retryPublish({ siteSlug: site.slug });
+      setStatus(res.ok ? { type: "ok", text: "Élesítve ✓" } : { type: "warn", text: `Még mindig nem sikerült (${res.error}).`, retry: true });
+    } catch {
+      setStatus({ type: "warn", text: "Hálózati hiba — próbáld újra.", retry: true });
+    }
   }
 
   function closePanel() {
@@ -351,7 +370,10 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     if (dirty && target) post({ type: MSG.REVERT, key: target.key });
     dropUpload();
     // Another language may live at another path → the iframe reloads and reconnects.
-    if (localePath(page, next) !== localePath(page, locale)) setConnected(false);
+    if (localePath(page, next) !== localePath(page, locale)) {
+      setConnected(false);
+      setFrameSrc(pageUrl(page, next, site.previewUrl));
+    }
     setLocale(next);
     setDirty(false);
     setStatus(null);
@@ -397,8 +419,10 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
             aria-label="Oldal"
             value={pageKey}
             onChange={(e) => {
+              const next = pages.find((p) => p.key === e.target.value) ?? pages[0];
               setConnected(false);
-              setPageKey(e.target.value);
+              setPageKey(next.key);
+              setFrameSrc(pageUrl(next, locale, site.previewUrl));
             }}
             className="rounded-lg border border-zinc-200 bg-white px-2 py-1.5 text-sm dark:border-zinc-800 dark:bg-zinc-900"
           >
@@ -455,7 +479,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       <div className="relative flex min-h-0 flex-1 flex-col md:flex-row">
         <div className="relative min-h-0 min-w-0 flex-1 bg-zinc-100 dark:bg-zinc-900">
           <PreviewFrame
-            src={src}
+            src={frameSrc}
             device={device}
             frameRef={frameRef}
             hidden={tab !== "preview"}

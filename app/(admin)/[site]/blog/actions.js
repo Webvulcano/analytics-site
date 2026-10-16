@@ -239,11 +239,7 @@ export async function commitPostCover({ siteSlug, id, path, ogPath, width, heigh
   if (!coverAlt) return { ok: false, error: "Add meg a kép leírását (alt szöveg)." };
   if (coverAlt.length > LIMITS.coverAlt) return { ok: false, error: `A kép leírása túl hosszú (max ${LIMITS.coverAlt}).` };
 
-  // A fájloknak tényleg létezniük kell (a felhasználó töltötte fel, RLS-sel).
-  const { data: files } = await ctx.supabase.storage.from(MEDIA_BUCKET).list(folder.slice(0, -1), { limit: 100 });
-  const names = new Set((files ?? []).map((f) => f.name));
-  if (!names.has(name) || !names.has(ogName)) return { ok: false, error: "A feltöltött fájl nem található." };
-
+  // Hogy a fájlok tényleg léteznek (WebP / JPEG, ≤ 3 MB), azt a posts tábla triggere ellenőrzi (0015_hardening).
   const { data, error } = await ctx.supabase
     .from("posts")
     .update({ cover_path: path, cover_width: w, cover_height: h, cover_alt: coverAlt, og_path: ogPath })
