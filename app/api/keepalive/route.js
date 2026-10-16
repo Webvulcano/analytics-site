@@ -1,8 +1,12 @@
 // Napi ping (Vercel Cron, ld. vercel.json) → a Supabase ingyenes projekt nem áll le 7 nap tétlenség miatt.
 // (Ugyanaz a minta, mint a StillSoul oldalán.) Egy olcsó, valódi adatbázis-lekérdezés a publikus kulccsal.
-// Ha a CRON_SECRET be van állítva (Vercel), csak a cron hívhatja: a Vercel `Authorization: Bearer <CRON_SECRET>`-et küld.
+// Csak a cron hívhatja: a Vercel `Authorization: Bearer <CRON_SECRET>`-et küld. Élesben CRON_SECRET nélkül
+// elutasít (nem marad nyitva véletlenül); helyben (nincs VERCEL_ENV) titok nélkül is hívható teszthez.
 export async function GET(request) {
   const secret = process.env.CRON_SECRET;
+  if (!secret && process.env.VERCEL_ENV === "production") {
+    return Response.json({ ok: false, error: "CRON_SECRET nincs beállítva" }, { status: 500 });
+  }
   if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
     return Response.json({ ok: false }, { status: 401 });
   }

@@ -207,6 +207,7 @@ export async function resetImage({ siteSlug, slotKey }) {
 
 export async function retryPublish({ siteSlug }) {
   const { site } = await requireSite(String(siteSlug));
+  if (site.status !== "active") return { ok: false, error: "Ez a weboldal jelenleg csak olvasható." };
   const supabase = await createClient();
   const pub = await publishSite(supabase, site);
   return { ok: pub.published, error: pub.error };
