@@ -1,6 +1,8 @@
 "use client";
 
+import { useState } from "react";
 import RichTextEditor from "./RichTextEditor";
+import SortableList from "./SortableList";
 import ImageEditor from "./ImageEditor";
 import ResizableAside from "./ResizableAside";
 
@@ -10,6 +12,7 @@ export default function EditPanel({
   target,
   draft,
   onChange,
+  onReorder, // (from, to) → moves a list item (whole-list view only)
   onSave,
   onCancel,
   onReset,
@@ -67,10 +70,17 @@ export default function EditPanel({
     );
   }
 
+  return <FieldPanel {...{ item, target, draft, onChange, onReorder, readOnly, localeNote, lockedMessage, footer, shell }} />;
+}
+
+function FieldPanel({ item, target, draft, onChange, onReorder, readOnly, localeNote, lockedMessage, footer, shell }) {
   const { field } = item;
   const opts = field.options ?? {};
   const isList = field.type === "list";
-  const itemFields = opts.itemFields ?? [];
+  // hidden item fields (e.g. an icon id) travel with the item but are not edited here
+  const itemFields = (opts.itemFields ?? []).filter((d) => !d.hidden);
+  // Stable row ids for drag-to-reorder (the panel remounts on cancel/reset, which resets them).
+  const [rowIds, setRowIds] = useState(() => (Array.isArray(draft) ? draft.map((_, i) => i) : []));
 
   // Which inputs to show: a single scalar, one list item sub-field, or a whole list.
   let body;
@@ -87,12 +97,14 @@ export default function EditPanel({
       />
     );
   } else {
-    const indexes = target.i != null ? [target.i] : draft.map((_, i) => i);
-    body = indexes.map((i) => {
+    const renderItem = (i, handle = null) => {
       const defs = target.i != null && target.f ? itemFields.filter((d) => d.key === target.f) : itemFields;
       return (
-        <fieldset key={i} className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-          <legend className="px-1 text-xs font-medium text-zinc-500">{i + 1}. elem</legend>
+        <fieldset className="space-y-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+          <legend className="flex items-center gap-1 px-1 text-xs font-medium text-zinc-500">
+            {handle}
+            {i + 1}. elem
+          </legend>
           {defs.map((def) => (
             <Control
               key={def.key}
@@ -106,7 +118,28 @@ export default function EditPanel({
           ))}
         </fieldset>
       );
-    });
+    };
+    if (target.i != null) {
+      body = renderItem(target.i);
+    } else {
+      body = (
+        <>
+          {!readOnly && draft.length > 1 && (
+            <p className="text-xs text-zinc-500">A ⠿ jellel húzva átrendezheted az elemeket. Mentés után a weboldalon is így jelennek meg.</p>
+          )}
+          <SortableList
+            id={`sort-${field.key}`}
+            ids={rowIds}
+            disabled={readOnly || draft.length < 2}
+            onMove={(from, to) => {
+              setRowIds((ids) => move(ids, from, to));
+              onReorder(from, to);
+            }}
+            renderItem={renderItem}
+          />
+        </>
+      );
+    }
   }
 
   return (
@@ -123,6 +156,12 @@ export default function EditPanel({
       </div>
     </PanelShell>
   );
+}
+
+function move(list, from, to) {
+  const next = [...list];
+  next.splice(to, 0, next.splice(from, 1)[0]);
+  return next;
 }
 
 function ReadOnlyNote() {

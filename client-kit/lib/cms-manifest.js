@@ -107,6 +107,8 @@ export function normalizeManifest(manifest) {
             type: it.type,
             ...(it.maxLength ? { maxLength: it.maxLength } : {}),
             ...(it.lines ? { lines: true } : {}),
+            // hidden: the item carries it (e.g. an icon id), but the admin panel doesn't show it
+            ...(it.hidden ? { hidden: true } : {}),
           }));
           options.count = Array.isArray(f.default) ? f.default.length : 0; // MVP: fix darabszám
         }

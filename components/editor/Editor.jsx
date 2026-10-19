@@ -55,6 +55,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState(null);
   const [revision, setRevision] = useState(0); // remounts editors after cancel/reset
+  const [reordered, setReordered] = useState(false); // list order changed since the last save
   const [moduleHint, setModuleHint] = useState(null); // { label, href } of a module area clicked in the preview
   const [panelWidth, setPanelWidth, commitPanelWidth] = usePanelWidth();
 
@@ -107,6 +108,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
             : undefined
       );
       setDirty(false);
+      setReordered(false);
       setStatus(null);
       setRevision((r) => r + 1);
     },
@@ -182,6 +184,19 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     setStatus(null);
   }
 
+  // Whole-list view: an item was dragged to a new position. The preview rewrites every item's
+  // texts in the new order; after saving, the framed page reloads (non-text parts like icons too).
+  function handleReorder(from, to) {
+    if (!field || field.type !== "list") return;
+    const next = [...draft];
+    next.splice(to, 0, next.splice(from, 1)[0]);
+    setDraft(next);
+    previewWhole(field, next);
+    setReordered(true);
+    setDirty(true);
+    setStatus(null);
+  }
+
   // Push a whole field value into the preview (used after reset to default).
   function previewWhole(f, value) {
     if (f.type === "list") {
@@ -236,6 +251,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       dropUpload();
       setDraft({ alt: saved.alt?.[locale] ?? "", upload: null });
       setDirty(false);
+      setReordered(false);
       setStatus(publishStatus(res));
     } catch (e) {
       if (uploaded) await discardUpload(uploaded);
@@ -259,8 +275,13 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       setValues((v) => ({ ...v, [field.key]: { ...v[field.key], [res.locale]: res.value } }));
       setDraft(clone(res.value));
       setDirty(false);
+      setReordered(false);
       post({ type: MSG.COMMIT, key: field.key });
       setStatus(publishStatus(res));
+      if (reordered) {
+        // the revalidated page needs a moment (stale-while-revalidate) before it shows the new order
+        if (res.published) setTimeout(reloadPreview, 2000);
+      }
     } catch {
       setStatus({ type: "error", text: "Hálózati hiba — a módosítás nincs mentve. Próbáld újra." });
     } finally {
@@ -274,6 +295,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     dropUpload();
     setDraft(slot ? slotDraft(slot.key, locale) : clone(resolveValue(field, values, locale, site.defaultLocale)));
     setDirty(false);
+    setReordered(false);
     setStatus(null);
     setRevision((r) => r + 1);
   }
@@ -299,6 +321,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       dropUpload();
       setDraft({ alt: "", upload: null });
       setDirty(false);
+      setReordered(false);
       setRevision((r) => r + 1);
       setStatus(publishStatus(res));
     } catch {
@@ -326,6 +349,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
       post({ type: MSG.COMMIT, key: field.key });
       setDraft(clone(def));
       setDirty(false);
+      setReordered(false);
       setRevision((r) => r + 1);
       setStatus(publishStatus(res));
     } catch {
@@ -350,6 +374,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     dropUpload();
     setTarget(null);
     setDirty(false);
+    setReordered(false);
     setStatus(null);
   }
 
@@ -376,6 +401,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
     }
     setLocale(next);
     setDirty(false);
+    setReordered(false);
     setStatus(null);
     if (field) setDraft(clone(resolveValue(field, values, next, site.defaultLocale)));
     if (slot) setDraft(slotDraft(slot.key, next));
@@ -557,6 +583,7 @@ export default function Editor({ site, fields, initialValues, initialImages, ini
             target={target}
             draft={draft}
             onChange={handleChange}
+            onReorder={handleReorder}
             onSave={handleSave}
             onCancel={handleCancel}
             onReset={handleReset}
