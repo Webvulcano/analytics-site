@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import LoginButton from "./LoginButton";
+import PasswordForm from "./PasswordForm";
 
 export const metadata = { title: "Belépés" };
 
@@ -12,8 +13,14 @@ export default function LoginPage({ searchParams }) {
           Lépj be, hogy szerkeszd a weboldalad és lásd a látogatottságát.
         </p>
         <div className="mt-8">
-          <LoginButton />
+          <PasswordForm />
         </div>
+        <div className="my-6 flex items-center gap-3 text-xs text-zinc-400">
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+          vagy
+          <span className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        </div>
+        <LoginButton />
         <Suspense fallback={null}>
           <AuthError searchParams={searchParams} />
         </Suspense>
