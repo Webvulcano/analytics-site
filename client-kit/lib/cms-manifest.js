@@ -203,6 +203,14 @@ export function normalizeManifest(manifest) {
   const packages = m.packages ? { label: m.packages.label ?? "Csomagok" } : null;
 
   const a = m.analytics ?? {};
+  // Vercel Web Analytics (admin → Analitika): { projectId: "prj_…", teamId: "team_…" }.
+  const vercel = a.vercel ?? null;
+  if (vercel && !/^prj_[A-Za-z0-9]+$/.test(vercel.projectId ?? "")) fail("analytics.vercel.projectId: prj_… kell");
+  if (vercel?.teamId && !/^team_[A-Za-z0-9]+$/.test(vercel.teamId)) fail("analytics.vercel.teamId: team_… kell");
+  // Which custom events count as a real conversion (the rest = "érdeklődés"). Stored in cta_buttons.
+  const conversions = vercel?.conversions ?? null;
+  if (conversions && !(Array.isArray(conversions) && conversions.every((c) => typeof c === "string" && c.trim())))
+    fail("analytics.vercel.conversions: eseménynevek listája kell");
   return {
     site: {
       slug: m.site.slug,
@@ -214,8 +222,10 @@ export function normalizeManifest(manifest) {
       preview_url: m.site.previewUrl ? normalizeOrigin(m.site.previewUrl, "site.previewUrl") : null,
       ga4_property_id: a.ga4PropertyId ?? null,
       gsc_site_url: a.gscSiteUrl ?? null,
+      vercel_project_id: vercel?.projectId ?? null,
+      vercel_team_id: vercel?.teamId ?? null,
       cta_event: a.ctaEvent ?? "cta_click",
-      cta_buttons: a.ctaButtons ?? [],
+      cta_buttons: conversions ?? a.ctaButtons ?? [],
       gallery,
       blog,
       reviews,
