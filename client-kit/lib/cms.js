@@ -20,6 +20,15 @@ export function cmsTag() {
   return `cms:${SLUG}`;
 }
 
+// Élesben force-cache + tag (az admin mentéskor revalidál). Dev-ben no-store: a revalidate-webhook
+// csak a manifest url-jére (a deployolt oldalra) megy, így a lokális dev szerver örökre a régi
+// tartalmat mutatná.
+function cmsCache() {
+  return process.env.NODE_ENV === "development"
+    ? { cache: "no-store" }
+    : { cache: "force-cache", next: { tags: [cmsTag()] } };
+}
+
 // Page paths from the manifest, every locale (used to warm pages right after a revalidate).
 export function cmsPagePaths() {
   const paths = normalizeManifest(manifest).pages.flatMap((p) => [p.path, ...Object.values(p.paths)]);
@@ -52,8 +61,7 @@ async function loadContent() {
     `${SUPABASE_URL}/rest/v1/rpc/cms_get_site_content?p_site=${encodeURIComponent(SLUG)}`,
     {
       headers: { apikey: SUPABASE_KEY, Accept: "application/json" },
-      cache: "force-cache",
-      next: { tags: [cmsTag()] },
+      ...cmsCache(),
     }
   );
   if (!res.ok) throw new Error(`CMS lekérés sikertelen: HTTP ${res.status}`);
@@ -73,7 +81,7 @@ async function rpc(name, params, { preview = false } = {}) {
   const qs = new URLSearchParams({ p_site: SLUG, ...params });
   const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}?${qs}`, {
     headers: { apikey: SUPABASE_KEY, Accept: "application/json" },
-    ...(preview ? { cache: "no-store" } : { cache: "force-cache", next: { tags: [cmsTag()] } }),
+    ...(preview ? { cache: "no-store" } : cmsCache()),
   });
   if (!res.ok) throw new Error(`CMS ${name}: HTTP ${res.status}`);
   return res.json();
