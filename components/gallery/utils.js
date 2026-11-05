@@ -2,7 +2,9 @@ import { mediaUrl } from "@/lib/image/upload";
 import { youtubeThumb } from "@/lib/gallery";
 
 // Photo → its WebP; video → own cover if uploaded, else the YouTube thumbnail.
+// A kicsi bélyegkép (thumb_path) előnyben, ha van — a grid így sokkal kevesebbet tölt.
 export function itemThumb(item) {
+  if (item.thumb_path) return mediaUrl(item.thumb_path);
   if (item.path) return mediaUrl(item.path);
   return youtubeThumb(item.youtube_id);
 }

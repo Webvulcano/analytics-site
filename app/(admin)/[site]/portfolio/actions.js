@@ -128,11 +128,11 @@ export async function deleteCategory({ siteSlug, id }) {
   const cat = await loadCategory(ctx, id);
   if (!cat) return { ok: false, error: "Ismeretlen kategória." };
 
-  const { data: items } = await ctx.supabase.from("gallery_items").select("path").eq("category_id", cat.id);
+  const { data: items } = await ctx.supabase.from("gallery_items").select("path, thumb_path").eq("category_id", cat.id);
   const { error } = await ctx.supabase.from("gallery_categories").delete().eq("id", cat.id);
   if (error) return { ok: false, error: `Törlés sikertelen: ${error.message}` };
 
-  await removeObjects(ctx, (items ?? []).map((i) => i.path));
+  await removeObjects(ctx, (items ?? []).flatMap((i) => [i.path, i.thumb_path]));
   return { ok: true, ...(await publish(ctx)) };
 }
 
@@ -150,7 +150,8 @@ export async function reorderCategories({ siteSlug, ids }) {
 
 // The browser already uploaded the WebP (RLS-checked); this records it in the category.
 // deferPublish: batch uploads publish once at the end (publishGallery).
-export async function addPhoto({ siteSlug, categoryId, path, width, height, bytes, alt, deferPublish }) {
+// thumbPath: a kártyákhoz készült kicsi WebP (ugyanabban a mappában); null, ha a kép eleve kicsi.
+export async function addPhoto({ siteSlug, categoryId, path, thumbPath, width, height, bytes, alt, deferPublish }) {
   const ctx = await context(siteSlug);
   if (ctx.error) return { ok: false, error: ctx.error };
   const cat = await loadCategory(ctx, categoryId);
@@ -159,6 +160,8 @@ export async function addPhoto({ siteSlug, categoryId, path, width, height, byte
   path = String(path);
   const re = new RegExp(`^${ctx.site.id}/gallery/${cat.id}/[0-9a-f-]{36}\\.webp$`);
   if (!re.test(path)) return { ok: false, error: "Érvénytelen fájl-útvonal." };
+  const thumb = thumbPath ? String(thumbPath) : null;
+  if (thumb && (!re.test(thumb) || thumb === path)) return { ok: false, error: "Érvénytelen bélyegkép-útvonal." };
   const w = Number(width);
   const h = Number(height);
   const b = Number(bytes);
@@ -177,13 +180,14 @@ export async function addPhoto({ siteSlug, categoryId, path, width, height, byte
       category_id: cat.id,
       kind: "photo",
       path,
+      thumb_path: thumb,
       width: w,
       height: h,
       bytes: Number.isInteger(b) && b > 0 ? b : null,
       alt: alts,
       position: await nextPosition(ctx, "gallery_items", "category_id", cat.id),
     })
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
+    .select("id, kind, path, thumb_path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 
@@ -212,7 +216,7 @@ export async function addVideo({ siteSlug, categoryId, url, title, year }) {
       year: y.value,
       position: await nextPosition(ctx, "gallery_items", "category_id", cat.id),
     })
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
+    .select("id, kind, path, thumb_path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 
@@ -244,19 +248,20 @@ function parseFocus(focus, fit) {
 }
 
 // coverPath: videos only — a just-uploaded own cover image (null = back to the YouTube thumbnail).
-export async function updateItem({ siteSlug, id, title, alt, year, categoryId, coverPath, focus, fit }) {
+// coverThumbPath: a borítókép kicsi változata (null, ha a borító eleve kicsi).
+export async function updateItem({ siteSlug, id, title, alt, year, categoryId, coverPath, coverThumbPath, focus, fit }) {
   const ctx = await context(siteSlug);
   if (ctx.error) return { ok: false, error: ctx.error };
   if (!UUID.test(String(id))) return { ok: false, error: "Ismeretlen elem." };
 
   const { data: item } = await ctx.supabase
     .from("gallery_items")
-    .select("id, kind, category_id, path")
+    .select("id, kind, category_id, path, thumb_path")
     .eq("site_id", ctx.site.id)
     .eq("id", id)
     .maybeSingle();
   if (!item) return { ok: false, error: "Ismeretlen elem." };
-  let oldCover = null;
+  let oldCover = [];
 
   const y = parseYear(year);
   if (y.error) return { ok: false, error: y.error };
@@ -272,12 +277,17 @@ export async function updateItem({ siteSlug, id, title, alt, year, categoryId, c
   if (item.kind === "video" && coverPath !== undefined) {
     if (coverPath === null) {
       patch.path = null;
+      patch.thumb_path = null;
     } else {
       const re = new RegExp(`^${ctx.site.id}/gallery/[0-9a-f-]{36}/[0-9a-f-]{36}\\.webp$`);
       if (!re.test(String(coverPath))) return { ok: false, error: "Érvénytelen fájl-útvonal." };
       patch.path = String(coverPath);
+      const thumb = coverThumbPath ? String(coverThumbPath) : null;
+      if (thumb && (!re.test(thumb) || thumb === patch.path)) return { ok: false, error: "Érvénytelen bélyegkép-útvonal." };
+      patch.thumb_path = thumb;
     }
-    if (item.path && item.path !== patch.path) oldCover = item.path;
+    if (item.path && item.path !== patch.path) oldCover.push(item.path);
+    if (item.thumb_path && item.thumb_path !== patch.thumb_path) oldCover.push(item.thumb_path);
   }
 
   if (categoryId && categoryId !== item.category_id) {
@@ -291,11 +301,11 @@ export async function updateItem({ siteSlug, id, title, alt, year, categoryId, c
     .from("gallery_items")
     .update(patch)
     .eq("id", item.id)
-    .select("id, kind, path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
+    .select("id, kind, path, thumb_path, youtube_id, width, height, bytes, title, year, alt, focus_x, focus_y, fit, position, category_id")
     .single();
   if (error) return { ok: false, error: `Mentés sikertelen: ${error.message}` };
 
-  if (oldCover) await removeObjects(ctx, [oldCover]);
+  if (oldCover.length) await removeObjects(ctx, oldCover);
   return { ok: true, item: data, ...(await publish(ctx)) };
 }
 
@@ -309,11 +319,11 @@ export async function deleteItem({ siteSlug, id }) {
     .delete()
     .eq("site_id", ctx.site.id)
     .eq("id", id)
-    .select("path");
+    .select("path, thumb_path");
   if (error) return { ok: false, error: `Törlés sikertelen: ${error.message}` };
   if (!data.length) return { ok: false, error: "Ismeretlen elem." };
 
-  await removeObjects(ctx, data.map((r) => r.path));
+  await removeObjects(ctx, data.flatMap((r) => [r.path, r.thumb_path]));
   return { ok: true, ...(await publish(ctx)) };
 }
 

@@ -10,7 +10,7 @@ import {
   reorderItems,
   updateCategory,
 } from "@/app/(admin)/[site]/portfolio/actions";
-import { processImage } from "@/lib/image/process";
+import { makeThumb, processImage } from "@/lib/image/process";
 import { discardUpload, uploadGalleryImage } from "@/lib/image/upload";
 import CategoryForm from "./CategoryForm";
 import ItemPanel from "./ItemPanel";
@@ -43,16 +43,21 @@ export default function GalleryCategoryView({ site, locales, category, categorie
 
   async function uploadOne(job, file) {
     let path = null;
+    let thumbPath = null;
     try {
       setJob(job.id, { state: "processing" });
       const out = await processImage(file, { maxWidth: site.gallery.maxWidth ?? 2000, quality: site.gallery.quality ?? 80 });
+      // Kicsi WebP a kártyákhoz (a weboldal ezt tölti be; a nagy csak nagyításkor kell).
+      const thumb = await makeThumb(out);
       setJob(job.id, { state: "uploading", bytes: out.blob.size });
       path = await uploadGalleryImage({ siteId: site.id, categoryId: category.id, blob: out.blob });
+      if (thumb) thumbPath = await uploadGalleryImage({ siteId: site.id, categoryId: category.id, blob: thumb.blob });
       // Alt text defaults to the category name; it can be refined per photo later.
       const res = await addPhoto({
         siteSlug: site.slug,
         categoryId: category.id,
         path,
+        thumbPath,
         width: out.width,
         height: out.height,
         bytes: out.blob.size,
@@ -63,6 +68,7 @@ export default function GalleryCategoryView({ site, locales, category, categorie
       setJob(job.id, { state: "done" });
     } catch (e) {
       if (path) await discardUpload(path);
+      if (thumbPath) await discardUpload(thumbPath);
       setJob(job.id, { state: "error", error: e?.message ?? "Ismeretlen hiba" });
     }
   }
