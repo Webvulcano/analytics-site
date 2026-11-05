@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { deleteItem, updateItem } from "@/app/(admin)/[site]/portfolio/actions";
-import { processImage } from "@/lib/image/process";
+import { makeThumb, processImage } from "@/lib/image/process";
 import { discardUpload, uploadGalleryImage } from "@/lib/image/upload";
 import { youtubeThumb } from "@/lib/gallery";
 import { itemThumb } from "./utils";
@@ -28,7 +28,8 @@ export default function ItemPanel({ site, locales, item, categories, onDone, onC
     setBusy(true);
     try {
       const out = await processImage(file, { maxWidth: 1280, quality: 80 });
-      setCover({ blob: out.blob, url: URL.createObjectURL(out.blob) });
+      const thumb = await makeThumb(out);
+      setCover({ blob: out.blob, thumbBlob: thumb?.blob ?? null, url: URL.createObjectURL(out.blob) });
     } catch (e) {
       setError(e?.message ?? "A képet nem sikerült feldolgozni.");
     } finally {
@@ -46,18 +47,24 @@ export default function ItemPanel({ site, locales, item, categories, onDone, onC
     setBusy(true);
     setError(null);
     let coverPath;
+    let coverThumbPath = null;
     try {
       if (cover === null) coverPath = null;
-      else if (cover) coverPath = await uploadGalleryImage({ siteId: site.id, categoryId: item.category_id, blob: cover.blob });
+      else if (cover) {
+        coverPath = await uploadGalleryImage({ siteId: site.id, categoryId: item.category_id, blob: cover.blob });
+        if (cover.thumbBlob) coverThumbPath = await uploadGalleryImage({ siteId: site.id, categoryId: item.category_id, blob: cover.thumbBlob });
+      }
     } catch (e) {
+      if (coverPath) await discardUpload(coverPath);
       setBusy(false);
       setError(e.message);
       return;
     }
-    const res = await updateItem({ siteSlug: site.slug, id: item.id, title, alt, year, categoryId, coverPath, focus: view.focus, fit: view.fit });
+    const res = await updateItem({ siteSlug: site.slug, id: item.id, title, alt, year, categoryId, coverPath, coverThumbPath, focus: view.focus, fit: view.fit });
     setBusy(false);
     if (!res.ok) {
       if (coverPath) await discardUpload(coverPath);
+      if (coverThumbPath) await discardUpload(coverThumbPath);
       setError(res.error);
     } else onDone(res, categoryId !== item.category_id ? "Áthelyezve" : "Mentve");
   }

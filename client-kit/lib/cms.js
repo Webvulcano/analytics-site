@@ -185,7 +185,8 @@ function createAccessor(data, requestedLocale) {
       const d = toDefault(slot);
       return d ? [d] : [];
     },
-    // Gallery module: { categories: [{ slug, title, link }], items: [{ id, category, kind, src, width, height, youtubeId, title, year, alt, focus, fit, objectPosition }] }
+    // Gallery module: { categories: [{ slug, title, link }], items: [{ id, category, kind, src, thumb, width, height, youtubeId, title, year, alt, focus, fit, objectPosition }] }
+    // thumb = kicsi (~800 px) WebP a kártyákhoz; null, ha nincs (régi / eleve kicsi kép) → src-t használd.
     // focus = { x, y } in % (crop anchor for object-fit: cover), fit = "cover" | "contain" (show the whole image).
     // Titles/alts resolved to the current locale. null when the site has no gallery.
     gallery() {
@@ -198,6 +199,7 @@ function createAccessor(data, requestedLocale) {
           category: it.c,
           kind: it.k,
           src: it.path ? publicUrl(it.path) : null,
+          thumb: it.thumb ? publicUrl(it.thumb) : null,
           width: it.w ?? undefined,
           height: it.h ?? undefined,
           youtubeId: it.yt ?? null,
